@@ -234,7 +234,13 @@ final class RoutineLibraryUITests: XCTestCase {
         let field = app.textFields[id]
         reveal(field, in: app)
         XCTAssertTrue(field.exists, app.debugDescription)
-        field.tap()
+        if id == "routine.expectedMinutes" || id == "routine.weeklyFrequency" {
+            // LabeledContent stacks at accessibility sizes. Its AX frame includes
+            // the label, so tap the lower trailing value rather than the label.
+            field.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.85)).tap()
+        } else {
+            field.tap()
+        }
         field.typeText(text)
         finishInput(in: app)
     }
