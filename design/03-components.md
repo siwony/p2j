@@ -25,7 +25,8 @@
 | TodayRoutineRow | 1 오늘의 실행명, 2 시작행동·시각·예상시간, 3 조정 | 예정/날짜지남/paused. 시작, 이미 했어요, 옮기기 | screen-local row에서 RoutineRow의 이름/meta primitive 재사용 |
 | ActiveRoutinePanel | 현재 실행 하나, 루틴명·기록시간·제어 | running/paused; pause/resume/complete; tap 상세 | accentSubtle 단일면. 상태·action props, timer 소유하지 않음 |
 | CompletedRoutineRow | 완료한 이름 + 실제 시간 또는 시간 미기록 | tap 수정/완료 취소. strike-through 금지 | secondary hierarchy, check + 완료 label. 접근성 row 묶음 |
-| EmptyTodayState | 오늘 정한 일이 없음을 설명 | ‘이번 주 보기’, 꾸밈 그림 없음 | Today 내부 텍스트 + QuietButton 조합 |
+| EmptyTodayState | 오늘 정한 일이 없음을 설명 | 오늘만 비면 ‘이번 주 보기’, 주 전체 미작성은 ‘남은 이번 주 계획하기’. 쉬기로 건너뛴 주는 재촉 없음 | Today 내부 텍스트 + QuietButton 조합 |
+| ReplanEntry | 놓친 일의 선택적 재계획 진입 | 현재 주의 지난 planned/paused가 있을 때 ‘이번 주 계획 다시 고르기’. 개수·배지·펼친 목록·알림 없음 | QuietButton → Week의 재계획 선택. 기본 미선택 |
 
 ## Week
 
@@ -33,9 +34,11 @@
 | --- | --- | --- | --- |
 | WeekDaySelector | 월→일 요일·일자 선택 | 오늘은 밑점+접근성 label, 선택은 면+윤곽; tap. 좌우 주 이동 별도 | 7개 date button. 큰글자/좁은폭은 horizontal ScrollView, 억지 축소 금지 |
 | WeekDayAgenda | 7열 대신 선택 날짜의 세로 실행목록 | 빈날/날짜지난날/오늘/미래. 주 변경 시 선택날짜 범위 안 보정 | screen-local section. WeekDayColumn의 모바일 대체 |
-| PlannedRoutineRow | 이름, 예상시간, ‘시간 미지정’ 또는 시각 | 완료/건너뜀/예정. tap→Reschedule, context menu 대체 | 실행항목 ID + 상태 + 변경 callback |
+| PlannedRoutineRow | 이름, 예상시간, ‘시간 미지정’ 또는 시각 | 예정·paused: 보이는 ‘옮기기’, 과거 날짜·지난주도 ‘이미 했어요’. 완료: 기록 편집. 건너뜀: 다시 계획하기. context menu는 보조 | 실행항목 ID + 상태 + 변경 callback |
 | DayWorkloadIndicator | 해당날 계획 수와 예상시간, 값 없으면 ‘예상 시간 미정 포함’ | 평가색·상한·목표대비 없음; 완료/skip은 계산범위 명시 | 단순 Text. planned+running+paused의 남은 예상 합계, 완료는 별도 기록 |
-| WeeklySelection | 이번/다음주 날짜범위와 후보 선택·횟수·요일 | 루틴함 선택/지난 계획 가져오기/이번 주 쉬기; 확정 전 draft | Week screen-local sheet content; 후보는 확정 전 draft. 쉬기는 비어 있는 주에만 제공 |
+| WeeklySelection | 이번/다음주 날짜범위와 후보 선택·횟수·요일 | 루틴함 선택/지난 계획 가져오기; 확정 전 draft. 주중 빈 주는 오늘~일요일 기본 범위 | Week screen-local sheet. 새 계획의 회차 생성과 기존 회차 재계획을 구분 |
+| ReplanSelection | 놓친 현재 주의 회차 선택·새 날짜 | 미선택 기본, 완료/건너뜀/이전 주 제외. 취소 무변경, 확정은 선택한 ID만 이동 | Week sheet. 기존 interval·ID 보존, 중복 생성 금지 |
+| RestWeekAction | 이번 주 미완료 일괄 쉬기 | 대상·실행 중 여부 확인 → 원자적 건너뜀. 완료 기록 보존. 건너뜀 목록에서 개별 다시 계획 | QuietButton + native confirmation. 실행 중인 대상 시간 보존·정지, 실패 시 전부 원상태 |
 
 ## Actions
 
@@ -64,7 +67,7 @@
 | --- | --- | --- | --- |
 | Toast | 이동·완료 취소 등 단기 결과 | 4초 내외, ‘실행 취소’가 있으면 충분한 읽기시간. 중요오류는 toast 단독 금지 | overlay/safeAreaInset. accessibility announcement 한 번 |
 | InlineStatus | 저장·복구정보 | neutral/saving/saved/error; retry 제공 | Text + action. 영역 높이 확장 |
-| CalendarSyncState | 앱→캘린더 반영 상태 | 미연결/변경있음/반영중/반영됨/일부실패/외부변경확인필요 | UI view state. 기기 간 앱데이터 sync로 표현 금지 |
+| CalendarSyncState | 주별 연결 여부와 앱→캘린더 반영 결과 | 연결 꺼짐/반영 대기/반영중/반영됨/일부실패/외부변경확인필요. 꺼진 연결의 기존 일정 잔존 안내 | 연결 의도와 OS 결과 분리. 새 항목도 자동 반영; ‘다시 반영’은 실패 복구용 |
 | PermissionState | notification/calendar 권한 안내 | 미요청/허용/허용안됨/제한. 미허용은 neutral | status + 권한요청 또는 설정열기. 실제 에러와 시각적으로 분리 |
 
 ## Sheets
@@ -73,8 +76,8 @@
 | --- | --- | --- | --- |
 | RoutineEditorSheet | 이름 우선, 분류/예상시간, 선택정보 | 추가/편집; 변경 draft 취소 시 폐기 여부 확인, 저장 실패 초안 유지 | native sheet + form-like local layout, medium/large는 내용·키보드 따라 |
 | RescheduleSheet | 원래 날짜 → 새 날짜, 선택적 시각 | 오늘 나중/다른날/이번주 건너뛰기; 이유 요구 없음 | native sheet; selectedDate local, 저장 후 persistent 변경 |
-| CompletionSheet | 기록 결과 확인 및 선택적 직접 시간 | timer완료/직접완료/기록수정/완료취소 | 바로완료는 한 번으로 완료 후 편집 sheet 선택적. 필수 확인 단계를 추가하지 않음 |
-| CalendarSheet | 대상주·대상캘린더·반영범위·상태 | 미허용/ready/applying/pending/partial/conflict/success | EventKit service 결과를 표현. 권한/반영 command는 view 외부 |
+| CompletionSheet | 완료 결과·실제로 한 날짜·선택적 시간 | 기본 완료 날짜, 과거 수행일 정정, 미래 선택 거절. 수행일 수정이 측정 구간이나 계획 날짜를 바꾸지 않음 | 바로완료는 한 번. 편집은 선택적 DatePicker + 시간 입력, 저장 성공 후 두 주 집계 갱신 |
+| CalendarSheet | 대상주·대상캘린더·연결 범위·상태 | 미허용/ready/applying/pending/partial/conflict/success. 켤 때 이후 추가·변경 반영, 끌 때 기존 일정 유지 안내 | 주별 연결 intent + EventKit 결과. 취소 무변경, 권한/반영 command는 view 외부 |
 
 ## 추출의 경계
 

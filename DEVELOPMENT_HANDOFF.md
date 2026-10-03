@@ -2,14 +2,16 @@
 
 ## 상태와 읽는 순서
 
-Stage: foundation in development (#4). Native SwiftUI project and name-only routine storage introduced; full MVP acceptance pending.
+Stage: foundation merged (#4). Native project + name-only routine storage present; full MVP acceptance pending. Product spec 1.3 adopted in #18; feature implementation pending in #8–#13.
+
+Before assigned work: `docs/development/planning-revision-1.3.md` → delta/AC/owner/scenarios. Reject stale 1.2 policies: empty-week-only rest, completion-entry-date aggregation, manual export of newly added items, time-first Records.
 
 1. `docs/product-plan.md`: scope, policies, acceptance, kickoff decisions.
 2. `design/01-direction.md`, `design/02-foundations.md`, `design/tokens.json`: art direction + visual source.
 3. `design/03-components.md`, `design/04-screens.md`: component/screen/state contracts. Read assigned feature first.
 4. `design/05-swiftui-handoff.md`: implementation + QA contract.
 
-`design/preview/index.html`: visual example. Docs own behavior. Never copy fixed date, sample data, simulated permissions into product logic.
+`design/preview/index.html`: 1.2 visual example; five 1.3 changes absent. Docs own behavior. Never copy fixed date, sample data, simulated permissions into product logic. Graph provenance predates #18; recheck source docs. Graph update only after merge.
 
 ## 협업 규칙
 

@@ -1,24 +1,37 @@
 # 기능 간 데이터 계약
 
-이슈 #4 · 기획 원본: `docs/product-plan.md`, 화면 상태 원본: `design/04-screens.md`.
+이슈 #4 / 개정 #18 · 기획 1.3 원본: `docs/product-plan.md`, 화면 상태 원본: `design/04-screens.md`. Delta/owners: `docs/development/planning-revision-1.3.md`.
 아래는 구현 순서를 정하는 계약이며 모두 구현됐다는 의미가 아니다. 각 기능 PR에서 모델을 추가하고 저장/이전 테스트를 함께 만든다.
 
 | 개념 | 소유 데이터와 불변 조건 | 구현 순서 |
 | --- | --- | --- |
 | RoutineTemplate | 안정적인 UUID, 이름, 분류, 선택적 예상분·횟수·선호요일·메모·시작행동, 보관 여부. 루틴 수정·보관은 과거 snapshot을 바꾸지 않는다 | 기반 → 루틴 편집 |
-| WeekPlan | 월요일 시작 LocalDate, 명시적 확정의 대상 주. 주를 시작해도 자동 이월하지 않는다 | 계획 |
+| WeekPlan | Monday LocalDate; explicit confirmed week; per-week calendar intent + destination. New/copied week connection off; no auto carryover | 계획 |
 | PlannedOccurrence | 고유 UUID, week/routine 참조, 해당 회차 이름·예상분 snapshot, 계획 LocalDate·선택적 local time, planned/running/paused/completed/skipped | 계획 → 실행 |
-| ExecutionRecord | occurrence 참조, 실제 interval의 Date instant들, 선택적 실제 duration, 완료 instant와 당시 local date. nil은 미기록, 0과 다르다 | 실행 |
+| ExecutionRecord | occurrence ref; interval instants; optional duration; `completedAt` + `completionLocalDate` capture completion entry; editable `performedOn` defaults to that date. nil ≠ 0 | 실행 |
 | WeeklyMemo | 월요일 시작 local date로 주 식별, 자유 본문. 공란 허용, 저장 실패 시 원문 보존 | 기록 |
 | CalendarLink | occurrence UUID, event 식별자·캘린더·마지막 내보낸 내용과 상태. 외부 변경 감지 뒤 명시적 선택, 중복 재시도 방지 | 캘린더 |
 
-LocalDate는 Gregorian year/month/day로 표현한다. 계획을 자정 Date instant로 영속화하지 않는다. 주 계산은 월요일 기준이다. 생활 시각을 Date로 해석할 때 Calendar와 TimeZone을 명시하고 DST 결과를 표시한다. 실제 interval instant와 완료 당시 local date는 시간대 변경 후 다시 쓰지 않는다.
+LocalDate는 Gregorian year/month/day로 표현한다. 계획을 자정 Date instant로 영속화하지 않는다. 주 계산은 월요일 기준이다. 생활 시각을 Date로 해석할 때 Calendar와 TimeZone을 명시하고 DST 결과를 표시한다. 실제 interval instant·완료 입력 당시 날짜·수행일은 시간대 변경으로 다시 쓰지 않는다. `performedOn`만 사용자의 명시적 정정으로 변경한다.
 
 화면이 draft를 소유하고 명령 계층이 저장을 확정한다. 공용 저장소가 동시에 수행하는 명령을 직렬화한다. 저장 성공 뒤 알림·캘린더 부수 작업을 요청한다. OS 작업 실패는 pending/retry이며 앱 저장을 되돌리지 않는다. 모델 ID와 명령 ID는 렌더링마다 만들지 않는다.
 
 주간 확정은 draft에서 생성한 안정적인 occurrence ID를 재사용한다. 실행 서비스는 화면과 독립적인 앱 수명이며 동시에 running 하나를 보장한다. 계산은 실제 timestamp를 사용하고 UI tick은 표시 용도다. 캘린더 작업은 event 저장과 앱 연결 저장 사이의 중단도 다루는 재시도 계약을 기능 구현 전에 확정한다.
 
 공용 모델·저장소·프로젝트 파일은 기반 담당이 단독 소유한다. 기능 담당은 이를 임의 확장하지 않고 필요한 변경을 개발총괄에게 전달한다. 프로토콜은 실제 OS 경계와 테스트 대역이 필요한 곳에만 도입한다.
+
+## 기획 1.3 명령·집계 계약
+
+- RestWeek: current week; confirmed stable ID set with planned/running/paused only. Atomically close target active interval + mark skipped. Failure preserves all state + running. Completed/prior skipped/other weeks untouched; keep snapshots/intervals. Idempotent command; no persistent ban on later additions. Restore selected skipped occurrence under same ID → planned, or paused if prior intervals exist.
+- Replan: current-week past planned/paused; no default selection. Reuse ID + intervals; change selected date only. Current-week remaining days by default. Skip/completed/prior weeks excluded. Prior-week import remains explicit new occurrence creation.
+- Late completion: Week past-date/prior-week planned/paused action completes same occurrence; no move/copy. Preserve measured intervals/time; nil only without history. Undo removes aggregation + clears active completedAt/completionLocalDate/performedOn, retaining intervals/time. Recomplete captures new instant/local date and defaults performedOn to that date; no stale completed-date reuse. Atomic save; failure preserves prior state.
+- Performed date: `performedOn` groups completed rows/counts/known durations; date edits cannot exceed current local today. Keep `completedAt`, `completionLocalDate`, intervals, duration, planned date. Save edits atomically; failure preserves draft + old aggregation. Refresh source/target week; memo stays. No new occurrence/completion or calendar update. Nil/zero/subminute retain distinction.
+- Calendar: WeekPlan connection intent separate from per-occurrence CalendarLink export status. Connected week additions/edits/rest/restore enqueue work after app save; off cancels/suspends queued writes, retaining links/events. New/copied week off. Before each write, recheck current intent + occurrence state/version; serialize disconnect with in-flight writes, then reconcile actual result. Never show off while a new automatic write can still start.
+- Cross-week move: both on → update existing event into destination calendar/date; source only on → remove source event; destination only on → recover/reuse existing link or create if none. Source off retained event requires explicit consent before reuse/change; do not silently duplicate. Both off → no OS write. All branches preserve external changes pending user choice.
+- Rest/restore/replan trigger notification replacement + active-calendar reconciliation after app commit. Cancel stale normal/group/snooze requests; keep weekly planning preference. Integration failure ≠ failed app save. No recovery-entry notification.
+- Records: completed rows → counts → optional time → memo. All nil durations: no aggregate row. Otherwise sum only known duration; include unrecorded count as secondary detail. Rest/skipped excluded from completed metrics.
+
+These contracts define future #8–#12 work. Do not mutate shipped V1 schema in place; schema/fixture migration remains required when adding persisted models. No application implementation in #18.
 
 ## 병렬 기술 조사에서 확정한 경계
 
