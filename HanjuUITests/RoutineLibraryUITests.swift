@@ -36,7 +36,7 @@ final class RoutineLibraryUITests: XCTestCase {
 
         app.buttons["취소"].tap()
         let keepEditing = app.buttons["계속 편집"]
-        XCTAssertTrue(keepEditing.waitForExistence(timeout: 5))
+        XCTAssertTrue(keepEditing.waitForExistence(timeout: 5), app.debugDescription)
         keepEditing.tap()
         XCTAssertEqual(input.value as? String, name)
 

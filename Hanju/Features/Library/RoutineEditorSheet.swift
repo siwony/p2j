@@ -35,7 +35,8 @@ struct RoutineEditorSheet: View {
                     Button("취소", action: cancel)
                         .confirmationDialog("변경한 내용을 버릴까요?", isPresented: $showDiscardConfirmation, titleVisibility: .visible) {
                             Button("변경 버리기", role: .destructive) { dismiss() }
-                            Button("계속 편집", role: .cancel) { }
+                            // Popover presentations can omit cancel-role buttons.
+                            Button("계속 편집") { showDiscardConfirmation = false }
                         }
                 }
                 ToolbarItem(placement: .confirmationAction) {
