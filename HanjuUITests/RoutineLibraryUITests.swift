@@ -148,8 +148,11 @@ final class RoutineLibraryUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["보관함"].waitForExistence(timeout: 5))
         XCTAssertFalse(routineRow(name, in: app).exists)
         app.navigationBars["보관함"].buttons.firstMatch.tap()
-        reveal(routineRow(name, in: app), in: app)
-        XCTAssertTrue(routineRow(name, in: app).exists)
+        // The archive link is at the bottom; returning preserves that scroll position.
+        // Search back toward the category above without relaunching or refreshing.
+        reveal(routineRow(name, in: app), in: app, upward: false)
+        XCTAssertTrue(routineRow(name, in: app).exists, app.debugDescription)
+        XCTAssertTrue(routineRow(name, in: app).isHittable)
     }
 
     @MainActor
