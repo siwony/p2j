@@ -14,6 +14,8 @@
 
 LocalDate는 Gregorian year/month/day로 표현한다. 계획을 자정 Date instant로 영속화하지 않는다. 주 계산은 월요일 기준이다. 생활 시각을 Date로 해석할 때 Calendar와 TimeZone을 명시하고 DST 결과를 표시한다. 실제 interval instant·완료 입력 당시 날짜·수행일은 시간대 변경으로 다시 쓰지 않는다. `performedOn`만 사용자의 명시적 정정으로 변경한다.
 
+RoutineTemplate의 `preferredWeekdays`는 월요일 1~일요일 7이며 중복 없이 저장한다(#7). Foundation `Calendar`의 weekday 값은 일요일부터 시작하므로 #8의 실제 날짜 배치에서 명시적으로 변환한다. 선택하지 않은 예상분·횟수는 nil이며 입력한 값은 양의 정수다. 이름을 제외한 입력은 선택 사항이다.
+
 화면이 draft를 소유하고 명령 계층이 저장을 확정한다. 공용 저장소가 동시에 수행하는 명령을 직렬화한다. 저장 성공 뒤 알림·캘린더 부수 작업을 요청한다. OS 작업 실패는 pending/retry이며 앱 저장을 되돌리지 않는다. 모델 ID와 명령 ID는 렌더링마다 만들지 않는다.
 
 주간 확정은 draft에서 생성한 안정적인 occurrence ID를 재사용한다. 실행 서비스는 화면과 독립적인 앱 수명이며 동시에 running 하나를 보장한다. 계산은 실제 timestamp를 사용하고 UI tick은 표시 용도다. 캘린더 작업은 event 저장과 앱 연결 저장 사이의 중단도 다루는 재시도 계약을 기능 구현 전에 확정한다.
