@@ -2,7 +2,7 @@
 
 ## 상태와 읽는 순서
 
-Stage: planning. iPhone MVP handoff ready. Native implementation/validation: dev-team next.
+Stage: foundation in development (#4). Native SwiftUI project and name-only routine storage introduced; full MVP acceptance pending.
 
 1. `docs/product-plan.md`: scope, policies, acceptance, kickoff decisions.
 2. `design/01-direction.md`, `design/02-foundations.md`, `design/tokens.json`: art direction + visual source.
@@ -30,8 +30,10 @@ Human planning/design docs: natural prose. This file + implementation contract: 
 
 ## 착수와 범위
 
-Resolve kickoff items in plan. Foundation → components → screens/storage → notifications/calendar → accessibility/real use. Current work: development rules established; native implementation/deployment pending.
+Resolve kickoff items in plan. Foundation → components → screens/storage → notifications/calendar → accessibility/real use. Current work: development rules + AI review workflow merged. Foundation implementation/verification: #4; sequential features: `docs/development/implementation-plan.md`. Personal iPhone 15 Pro target; signing/device validation pending.
 
 MVP excludes Mac, CloudKit, server, account, payment. Native SwiftUI; no HTML WebView wrapper. Tests map to plan acceptance criteria.
 
 `docs/.archive/`: historical reviews + compression originals; exclude default reads. Read `design/reference/user-design-brief.txt` only for source conflicts.
+
+Technical decision: `docs/adr/0001-native-ios-foundation.md`. Data contracts: `docs/development/data-contracts.md`. Local build: `docs/development/local-development.md`.

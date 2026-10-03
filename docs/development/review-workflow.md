@@ -6,7 +6,7 @@
 
 main ruleset `24424097`은 PR·squash 통합, 선형 이력, 대화 해결을 요구하고 삭제·force push를 금지한다. Copilot 자동 리뷰는 신규 PR과 추가 push에 켜고 draft에서는 끈다. 1인 저장소이므로 사람 승인 수는 0이다. 관리자의 우회 목록은 비어 있다.
 
-GitHub Actions `PR policy`는 브랜치·PR 제목·모든 새 커밋의 대표 이슈 번호와 실제 이슈 존재, 본문의 Closes/Refs 연결을 검사한다. 닫힌 원본 이슈는 Graphify 후속 PR에서 재사용할 수 있다. 250개 이상 커밋은 전체 API 조회 한계 때문에 작은 PR로 나눈다. Actions는 읽기 권한만 사용하고 비밀키나 외부 LLM API를 요구하지 않는다. 필수 status check는 실제 첫 성공 후 main ruleset에 연결한다.
+GitHub Actions `PR policy`는 브랜치·PR 제목·모든 새 커밋의 대표 이슈 번호와 실제 이슈 존재, 본문의 Closes/Refs 연결을 검사한다. 닫힌 원본 이슈는 Graphify 후속 PR에서 재사용할 수 있다. 250개 이상 커밋은 전체 API 조회 한계 때문에 작은 PR로 나눈다. Actions는 읽기 권한만 사용하고 비밀키나 외부 LLM API를 요구하지 않는다. `PR policy`는 PR #6의 실제 첫 성공(run 37142922120) 후 main 필수 검사(app15368)로 연결했다. 앱 프로젝트 추가 후 `iOS build and tests`도 실제 성공을 확인하고 같은 방식으로 연결한다.
 
 ## PR별 순서
 
