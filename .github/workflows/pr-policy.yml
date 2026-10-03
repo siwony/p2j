@@ -24,6 +24,8 @@ jobs:
           persist-credentials: false
       - name: Test policy validation
         run: node --test .github/scripts/pr-policy.test.cjs
+      - name: Test commit message hook
+        run: python3 .github/scripts/test_commit_msg.py
       - name: Check issue, branch, PR title and commits
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         with:

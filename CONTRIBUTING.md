@@ -66,7 +66,7 @@ git config --get core.hooksPath
 git config --local core.hooksPath .githooks
 ```
 
-`.githooks/commit-msg`는 브랜치 형식, main/detached HEAD 커밋, 제목 형식·길이·이슈 번호 일치를 검사한다. bootstrap 브랜치도 커밋 단계에서는 거절한다. `--no-verify`로 우회하지 않는다. 훅은 로컬 검사이며 이슈 실재 여부, 리뷰, 원격 branch protection을 보장하지 않는다.
+`.githooks/commit-msg`는 브랜치 형식, main/일반 detached HEAD 커밋, 제목 형식·길이·이슈 번호 일치를 검사한다. rebase 도중의 detached HEAD는 Git의 worktree별 rebase 상태에 기록된 원래 브랜치로 같은 규칙을 검사한다. bootstrap 브랜치도 커밋 단계에서는 거절한다. `--no-verify`로 우회하지 않는다. 훅은 로컬 검사이며 이슈 실재 여부, 리뷰, 원격 branch protection을 보장하지 않는다.
 
 ## 4. PR과 통합
 
