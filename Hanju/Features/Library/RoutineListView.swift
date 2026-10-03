@@ -72,6 +72,7 @@ struct RoutineListView: View {
                     }
                 }
             }
+            .listStyle(.plain)
             .scrollContentBackground(.hidden)
             .background(DesignTokens.background)
             .navigationTitle(archived ? "보관함" : "루틴함")

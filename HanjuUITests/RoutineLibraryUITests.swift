@@ -20,6 +20,7 @@ final class RoutineLibraryUITests: XCTestCase {
         app.terminate()
         app.launch()
         try openLibrary(in: app)
+        reveal(routineRow(name, in: app), in: app)
         XCTAssertTrue(routineRow(name, in: app).waitForExistence(timeout: 5))
     }
 
@@ -208,8 +209,11 @@ final class RoutineLibraryUITests: XCTestCase {
         let number = app.textFields["routine.expectedMinutes"]
         XCTAssertEqual(number.value as? String, "0")
         XCTAssertTrue(app.navigationBars["새 루틴"].exists)
-        number.tap()
+        // Numeric input is trailing-aligned; tap after its last glyph rather than
+        // the empty leading portion of the field before sending Backspace.
+        number.coordinate(withNormalizedOffset: CGVector(dx: 0.99, dy: 0.5)).tap()
         number.typeText(XCUIKeyboardKey.delete.rawValue + "5")
+        XCTAssertEqual(number.value as? String, "5")
         finishInput(in: app)
         app.buttons["저장"].tap()
         XCTAssertTrue(routineRow(name, in: app).waitForExistence(timeout: 5))
