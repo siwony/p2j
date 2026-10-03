@@ -1,0 +1,35 @@
+# 개발팀 인계
+
+## 상태와 읽는 순서
+
+Stage: planning. iPhone MVP handoff ready. Native implementation/validation: dev-team next.
+
+1. `docs/product-plan.md`: scope, policies, acceptance, kickoff decisions.
+2. `design/01-direction.md`, `design/02-foundations.md`, `design/tokens.json`: art direction + visual source.
+3. `design/03-components.md`, `design/04-screens.md`: component/screen/state contracts. Read assigned feature first.
+4. `design/05-swiftui-handoff.md`: implementation + QA contract.
+
+`design/preview/index.html`: visual example. Docs own behavior. Never copy fixed date, sample data, simulated permissions into product logic.
+
+## 협업 규칙
+
+Latest user decision wins. Policy → product plan; values → tokens; screen behavior → screen spec. Update affected refs together. No duplicated rules.
+
+Apply project skills by responsibility:
+
+- `.agents/skills/swiftui-design-skill/SKILL.md`: art direction, composition, hierarchy.
+- `.agents/skills/apple-design/SKILL.md`: native iOS navigation/control semantics.
+- `.agents/skills/swiftui-pro/SKILL.md`: SwiftUI, data flow, concurrency.
+- `.agents/skills/design-swiftui-interfaces/SKILL.md`: interaction, motion, accessibility, visual QA.
+
+Priority: product philosophy → art direction → hierarchy/signature identity → native iOS interaction → implementation correctness → Simulator QA. No generic averaging. Keep standard profile + brand.
+
+Human planning/design docs: natural prose. This file + implementation contract: caveman. Preserve code, paths, APIs, conditions, negations.
+
+## 착수와 범위
+
+Resolve kickoff items in plan. Foundation → components → screens/storage → notifications/calendar → accessibility/real use. Current planning review: no development/deployment.
+
+MVP excludes Mac, CloudKit, server, account, payment. Native SwiftUI; no HTML WebView wrapper. Tests map to plan acceptance criteria.
+
+`docs/.archive/`: historical reviews + compression originals; exclude default reads. Read `design/reference/user-design-brief.txt` only for source conflicts.

@@ -1,0 +1,57 @@
+{
+  "README.md": {
+    "chars": 1467,
+    "bytes": 2486,
+    "lines": 42
+  },
+  "DEVELOPMENT_HANDOFF.md": {
+    "chars": 4409,
+    "bytes": 8491,
+    "lines": 79
+  },
+  "docs/design-review.md": {
+    "chars": 4996,
+    "bytes": 9920,
+    "lines": 100
+  },
+  "docs/product-plan.md": {
+    "chars": 10480,
+    "bytes": 22998,
+    "lines": 240
+  },
+  "design/01-direction.md": {
+    "chars": 3685,
+    "bytes": 7724,
+    "lines": 66
+  },
+  "design/02-foundations.md": {
+    "chars": 7238,
+    "bytes": 11368,
+    "lines": 110
+  },
+  "design/03-components.md": {
+    "chars": 5645,
+    "bytes": 8627,
+    "lines": 81
+  },
+  "design/04-screens.md": {
+    "chars": 7532,
+    "bytes": 13501,
+    "lines": 92
+  },
+  "design/05-swiftui-handoff.md": {
+    "chars": 8343,
+    "bytes": 12808,
+    "lines": 144
+  },
+  "design/06-art-direction-review.md": {
+    "chars": 9164,
+    "bytes": 16516,
+    "lines": 107
+  },
+  "design/07-experience-contract.md": {
+    "chars": 7738,
+    "bytes": 14291,
+    "lines": 122
+  }
+}

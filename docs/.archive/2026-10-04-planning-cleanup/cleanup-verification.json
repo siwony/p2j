@@ -1,0 +1,47 @@
+{
+  "active_markdown_files": {
+    "before": 11,
+    "after": 8
+  },
+  "active_chars": {
+    "before": 70697,
+    "after": 42966,
+    "reduction_percent": 39.2
+  },
+  "collaboration_chars": {
+    "before": 12752,
+    "after": 6371,
+    "reduction_percent": 50.0
+  },
+  "measurement": "Unicode character count; not tokenizer count",
+  "checks": {
+    "local_links": "passed",
+    "source_backups": "11 preserved",
+    "original_brief": "byte identical",
+    "acceptance_criteria": "AC-01 through AC-14 unique",
+    "three_w_one_h": "preserved",
+    "compression_code_paths_headings": "passed"
+  },
+  "compression": [
+    {
+      "path": "DEVELOPMENT_HANDOFF.md",
+      "before_cleanup_chars": 4409,
+      "precompression_chars": 1470,
+      "after_chars": 2001,
+      "validator_errors": [],
+      "heuristic_warnings": [
+        "Path mismatch: lost=set(), added={'screens/storage', 'hierarchy/signature', 'navigation/control', 'notifications/calendar', 'implementation/validation', 'component/screen/state', 'development/deployment.', 'accessibility/real', 'planning/design'}"
+      ]
+    },
+    {
+      "path": "design/05-swiftui-handoff.md",
+      "before_cleanup_chars": 8343,
+      "precompression_chars": 3460,
+      "after_chars": 4370,
+      "validator_errors": [],
+      "heuristic_warnings": [
+        "Path mismatch: lost={'Motion/Transparency를', '기본/최대', 'light/dark/대비', 'push/sheet', '세로/가로'}, added={'tab/date/scroll/focus.', 'cancellation/reopen', 'Screen/data', 'input/reversal/cancel', 'boundaries/secondary', 'notifications/calendar', 'cancel/swipe', 'Type/VoiceOver', 'accessibility/real', 'start/complete/move/save.', 'long/empty/loading/failure', 'VoiceOver/Voice', 'default/largest', 'Recorder/scheduler/calendar', 'background/relaunch.', 'VoiceOver/accessibility', 'pending/retry.', 'confirmation/completion/calendar', 'occurrences/events.', 'Policy/acceptance', 'scheme/SDK/device/settings/path/result/unverified', 'Motion/Transparency.', 'Control/keyboard/focus', 'light/dark/increased', 'midnight/time-zone', 'smallest/typical/large', 'change/short', 'portrait/landscape/keyboard', 'Swipe/drag', 'start/complete/confirm', 'notification/haptic/performance', 'library/week/storage', 'I/O', 'Back/tab', 'Button/Toggle/Picker/DatePicker.', 'Edit/undo/recovery', 'tab/path/sheet.', 'labels/outlines/symbols', 'push/sheet.', '320px/1.28', 'start/end', 'save/permission', 'collection/occurrence/transition', 'today/execution/records'}"
+      ]
+    }
+  ]
+}
