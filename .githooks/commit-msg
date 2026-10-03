@@ -20,11 +20,31 @@ branch_result = subprocess.run(
     capture_output=True, text=True,
 )
 branch = branch_result.stdout.strip()
+if branch_result.returncode == 1:
+    # Rebase detaches HEAD; resolve state through Git for linked worktrees too.
+    for state in ("rebase-merge", "rebase-apply"):
+        state_result = subprocess.run(
+            ["git", "rev-parse", "--git-path", state],
+            capture_output=True, text=True,
+        )
+        if state_result.returncode != 0:
+            continue
+        state_path = Path(state_result.stdout.strip())
+        # git am also uses rebase-apply, but does not create the rebasing marker.
+        if state == "rebase-apply" and not (state_path / "rebasing").is_file():
+            continue
+        try:
+            head_name = (state_path / "head-name").read_text(encoding="utf-8").strip()
+        except (OSError, UnicodeError):
+            continue
+        if head_name.startswith("refs/heads/"):
+            branch = head_name[len("refs/heads/"):]
+            break
 types = r"(?:feat|fix|refactor|test|docs|chore|build|ci|perf|revert)"
 branch_match = re.fullmatch(
     rf"codex/{types}/([1-9][0-9]*)-[a-z0-9]+(?:-[a-z0-9]+)*", branch
 )
-if branch_result.returncode != 0 or not branch_match:
+if branch_result.returncode not in (0, 1) or not branch_match:
     reject("실제 이슈가 있는 codex/<type>/<번호>-<설명> 브랜치에서 커밋하세요.")
 
 try:
