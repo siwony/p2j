@@ -1,20 +1,19 @@
 {
   "source_branch": "main",
-  "source_commit": "02a9202e5dea15b9f217f93df4c6091ca1f169d4",
+  "source_commit": "ba92e7e95dd8f3c3435b7cc4fcbd7b307797cffe",
   "source_issues": [
-    3,
-    4
+    16
   ],
   "source_prs": [
-    6,
-    14
+    17
   ],
-  "generated_at": "2026-10-03T18:43:26.790679+00:00",
+  "previous_source_commit": "02a9202e5dea15b9f217f93df4c6091ca1f169d4",
+  "generated_at": "2026-10-03T19:16:19.763378+00:00",
   "graphify_version": "0.9.68",
   "ai_tool": "Codex",
   "ai_model": null,
-  "mode": "full",
-  "extraction": "Full AST extraction and current Codex semantic extraction; prior selected concepts refreshed against current source",
+  "mode": "incremental",
+  "extraction": "Source-hash-verified prior raw extraction reused for 47 unchanged files; AST for 2 changed/new code files and current Codex semantic refresh for 2 changed documents/configs",
   "excluded_paths": [
     "docs/.archive/",
     ".agents/skills/",
@@ -26,13 +25,14 @@
   ],
   "health": "warning",
   "warnings": [
-    "원시 추출의 468개 관계 중 17개는 같은 endpoint 쌍의 추가 관계·라인이다. 최종 단순 그래프는 451개 연결이며 중복 쌍 14개의 모든 원문 관계를 edge.evidence에 보존했다.",
-    "관계 합침 뒤 연결의 relation/confidence/confidence_score와 보고서 비율은 graphify가 선택한 대표 관계 기준이다. 각 병합 연결의 evidence 배열에는 모든 원시 관계의 source/target/relation/confidence/confidence_score/source_file/source_location을 별도로 보존했다.",
+    "이전 source 02a9202e5dea15b9f217f93df4c6091ca1f169d4의 원시 추출을 재사용했다. 파일 SHA256으로 47개 동일 입력을 확인했고 변경·추가 4개만 AST/의미 재검증했다. 전체 corpus를 다시 추출하지 않았다.",
+    "대표 relation/confidence/confidence_score와 보고서 비율은 graphify가 선택한 대표 연결 기준이다. 병합 연결의 evidence 배열은 원시 관계별 source/target/relation/confidence/confidence_score/source_file/source_location을 모두 보존한다.",
+    "graphify 원시 추출(AST+의미)의 536개 관계 중 17개는 같은 endpoint 쌍의 추가 관계·라인이다. 최종 단순 그래프는 519개 연결이며 중복 쌍 14개의 모든 원문 관계를 edge.evidence에 보존했다.",
     "AST 오연결 1건을 원문으로 수정했다: RoutineWriter.create의 주입 save closure 호출은 RoutineEditorSheet.save 호출이 아니므로 제거했다. pr-policy.cjs의 module.exports 두 항목도 호출이 아닌 exports 관계로 보정했다.",
     "AST의 외부/제네릭 타입 노드는 사용 근거 위치를 source_file/source_location에 기록했다. 정의 파일·실제 순환 의존으로 해석하지 않는다.",
     "Swift/CJS/hook은 AST 지원을 확인했다. Xcode project/scheme, CI YAML, 디자인·asset JSON은 현재 Codex가 의미 추출했으며 AST 호출 그래프 대상이 아니다.",
     "이름 등록·저장 기반 단계이며 계획·실행·기록·알림·캘린더와 전체 AC는 후속이다. snapshot 검증 문서의 CI 진행 표현을 성공 결과로 바꾸지 않았다. 원격 PR14 최신 CI 결과는 이 그래프의 입력 원문 밖이다.",
-    "입력 50개 전체 파일 출처를 포함하지만 주요 개념 중심 인덱스이며 모든 문장·SwiftUI modifier·Xcode 설정의 완전한 모델은 아니다.",
+    "입력 51개 전체 파일 출처를 포함하지만 주요 개념 중심 인덱스이며 모든 문장·SwiftUI modifier·Xcode 설정의 완전한 모델은 아니다.",
     "design/tokens.json 민감 파일명 오탐은 디자인 값 확인 뒤 입력에 명시 포함했다. archive/skills/graphify 출력/의존 메타데이터/빌드 산출물은 제외했다.",
     "모델 ID·입력/출력 토큰·비용 집계는 제공되지 않아 null로 기록한다. 외부 LLM API를 사용하지 않았다."
   ],
@@ -47,6 +47,7 @@
     ".github/pull_request_template.md",
     ".github/scripts/pr-policy.cjs",
     ".github/scripts/pr-policy.test.cjs",
+    ".github/scripts/test_commit_msg.py",
     ".github/workflows/ios.yml",
     ".github/workflows/pr-policy.yml",
     "AGENTS.md",
@@ -92,17 +93,18 @@
     "docs/verification/2026-10-04-foundation.md"
   ],
   "input_file_sha256": {
-    ".githooks/commit-msg": "fdf78086eb5e1c41d25f02f91739847ace8bf8fa271bc54cc348eef0e7f1a381",
+    ".githooks/commit-msg": "9886308326eff3b2d7804a93bd84e9f76538a5e095f5f50261687e20df0c900e",
     ".github/ISSUE_TEMPLATE/bug.md": "88d0e9377da487fbcba0bc9156016955ec815adaa1f206952e4f4eaabd0c218b",
     ".github/ISSUE_TEMPLATE/task.md": "d4040514e635eb59ad66da472b1291fd2dba19ce1644f99347b98d150a949cb2",
     ".github/copilot-instructions.md": "b8d9b4945aff63bd0eb5ee7b4557beacf74e17f61c2d6bbab56582259ceae3a0",
     ".github/pull_request_template.md": "401939288306eecc564a41e943b5b3f272504fe0cffe1b718b1c0f61a8e86ef5",
     ".github/scripts/pr-policy.cjs": "c0cd4060ff2b6a3f045aef97185597bfaf01cd967a71a9a5350c1b45f337cacb",
     ".github/scripts/pr-policy.test.cjs": "5e38e90d5aa65cbd2446c407ef06e97f947523bd29a03effffaaacc34bf53825",
+    ".github/scripts/test_commit_msg.py": "84de7260c9c01ce8f2fd2ba6406653f8c59e7bebcd65c280883c00c8aee95379",
     ".github/workflows/ios.yml": "6f2df545bd3a01c258ffcbd9b05cecb6fe19e5730276fb23cac4ad103692c6bb",
-    ".github/workflows/pr-policy.yml": "f826f3ef697a2c48c293358d488ae049a0b0cbe4b67497cb0585d941a51bce92",
+    ".github/workflows/pr-policy.yml": "194e680d4edceac1d2d382bb3a2fde2097beaee746d61869406a94003665dde0",
     "AGENTS.md": "ef8e481c6c98b7ecffc966a41d3e6302235cc9656709feb1d2de65dd9ac0c14c",
-    "CONTRIBUTING.md": "3916a579d93d8fc7c639454ff14d3f7f8d140a3451ddd30c8b2375b0b472acf8",
+    "CONTRIBUTING.md": "542487c3301a479318e9b5a91b7936c726bbbaf3ce3afbb8650da561f0f4bb24",
     "DEVELOPMENT_HANDOFF.md": "64c62a595275542af6ea995308e87b2585860897323f77c5138c6ad7520c7fe6",
     "Hanju.xcodeproj/project.pbxproj": "5f88cfe7746539024094303b8279cf27980331c1f1f8af8031986b45015b3a04",
     "Hanju.xcodeproj/xcshareddata/xcschemes/Hanju.xcscheme": "042fd699427b4970a101c50f620d4e010d6d77dd690d3c1506a46a320a285bb1",
@@ -144,32 +146,40 @@
     "docs/verification/2026-10-04-foundation.md": "3047b041c0b6f18bddc1ced3374b00369d05776b26fa0eeb60bce6425d487391"
   },
   "coverage": {
-    "input_files": 50,
-    "files_with_nodes": 50,
-    "ast_input_files": 15,
+    "input_files": 51,
+    "files_with_nodes": 51,
+    "ast_corpus_files": 16,
+    "ast_reextracted_files": 2,
+    "reused_unchanged_files": 47,
+    "refreshed_files": [
+      ".githooks/commit-msg",
+      ".github/scripts/test_commit_msg.py",
+      ".github/workflows/pr-policy.yml",
+      "CONTRIBUTING.md"
+    ],
     "semantic_document_config_files": 35,
-    "nodes": 242,
-    "raw_relations": 468,
-    "graph_connections": 451,
+    "nodes": 268,
+    "raw_relations": 536,
+    "graph_connections": 519,
     "parallel_evidence_groups": 14,
     "communities": 12,
     "connected_components": 1,
     "degree_zero_nodes": 0
   },
   "diagnostics": {
-    "node_count": 242,
+    "node_count": 268,
     "unverified_node_count": 0,
-    "raw_edge_count": 468,
+    "raw_edge_count": 536,
     "non_object_edges": 0,
     "missing_endpoint_edges": 0,
     "dangling_endpoint_edges": 0,
     "external_reference_edges": 0,
     "self_loop_edges": 0,
-    "valid_candidate_edges": 468,
+    "valid_candidate_edges": 536,
     "exact_duplicate_edges": 0,
-    "directed_unique_endpoint_pairs": 451,
+    "directed_unique_endpoint_pairs": 519,
     "directed_same_endpoint_collapsed_edges": 17,
-    "undirected_unique_endpoint_pairs": 451,
+    "undirected_unique_endpoint_pairs": 519,
     "undirected_same_endpoint_collapsed_edges": 17,
     "same_endpoint_group_count": 14,
     "relation_variant_groups": 9,
@@ -177,14 +187,13 @@
     "source_location_variant_groups": 5,
     "context_variant_groups": 0,
     "post_build_graph_type": "Graph",
-    "post_build_node_count": 242,
-    "post_build_edge_count": 451,
+    "post_build_node_count": 268,
+    "post_build_edge_count": 519,
     "post_build_error": ""
   },
   "ast_corrections": [
     "Removed incorrect injected closure call edge to RoutineEditorSheet.save",
     "Changed module.exports indirect_call pair to exports"
   ],
-  "preserved_parallel_evidence_count": 17,
-  "confidence_semantics": "graph connection attributes summarize the representative relation; evidence arrays retain all constituent relation confidence values"
+  "preserved_parallel_evidence_count": 17
 }
