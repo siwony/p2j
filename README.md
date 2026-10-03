@@ -15,6 +15,8 @@
 
 ## 개발 협업 자료
 
+[개발 및 협업 규칙](CONTRIBUTING.md)은 이슈·브랜치·커밋·PR·검증의 기준입니다. 모든 개발 에이전트는 [AGENTS.md](AGENTS.md)를 먼저 읽습니다. [Graphify 운영](docs/development/graphify.md)은 main 병합 이후 갱신과 현재 AI 도구의 라벨링 절차를 정의합니다.
+
 [개발팀 인계](DEVELOPMENT_HANDOFF.md)에서 시작합니다. [SwiftUI 구현 계약](design/05-swiftui-handoff.md)은 협업용 압축 문서입니다. 기획·디자인 자료는 사람이 읽기 쉬운 문체를 유지합니다.
 
 지원 iOS·테스트 기기·배포 경로·개발팀 견적은 착수 미팅에서 확정합니다. 기획서의 8주와 250,000원은 기존 개인 개발 추정치로, 개발팀의 일정이나 인건비 견적이 아닙니다.

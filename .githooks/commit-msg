@@ -1,0 +1,42 @@
+#!/usr/bin/env python3
+"""Validate project commit conventions without third-party dependencies."""
+
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+
+def reject(message):
+    print(f"커밋 거절: {message}\n규칙: CONTRIBUTING.md", file=sys.stderr)
+    raise SystemExit(1)
+
+
+if len(sys.argv) != 2:
+    reject("커밋 메시지 파일이 필요합니다.")
+
+branch_result = subprocess.run(
+    ["git", "symbolic-ref", "--quiet", "--short", "HEAD"],
+    capture_output=True, text=True,
+)
+branch = branch_result.stdout.strip()
+types = r"(?:feat|fix|refactor|test|docs|chore|build|ci|perf|revert)"
+branch_match = re.fullmatch(
+    rf"codex/{types}/([1-9][0-9]*)-[a-z0-9]+(?:-[a-z0-9]+)*", branch
+)
+if branch_result.returncode != 0 or not branch_match:
+    reject("실제 이슈가 있는 codex/<type>/<번호>-<설명> 브랜치에서 커밋하세요.")
+
+try:
+    lines = Path(sys.argv[1]).read_text(encoding="utf-8").splitlines()
+except (OSError, UnicodeError) as error:
+    reject(f"메시지를 읽을 수 없습니다: {error}")
+subject = lines[0] if lines else ""
+subject_match = re.fullmatch(
+    rf"{types}\([a-z][a-z0-9-]*\): (\S(?:.*\S)?) \(#([1-9][0-9]*)\)",
+    subject,
+)
+if not subject_match or len(subject) > 100:
+    reject("제목은 100자 이내의 'type(scope): 변경 요약 (#번호)' 형식이어야 합니다.")
+if subject_match.group(2) != branch_match.group(1):
+    reject("커밋 제목과 브랜치의 대표 이슈 번호가 다릅니다.")
