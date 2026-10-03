@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "skills": {
+    "apple-design": {
+      "source": "tzzs/apple-design-skill",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "bf403693c929029dd7d3de19af247fdbdf1e4e3c822bc774b0df0b7952c8792b"
+    },
+    "design-swiftui-interfaces": {
+      "source": "ZHUOLIN0928/swiftui-interface-design-skill",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "f4ad6779192cd014af19fd388ddf18dc6966378ce4d648c3ccd3d02d6b97c202"
+    },
+    "swiftui-design-skill": {
+      "source": "wholiver/swiftui-design-skill",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "e566cd9af70769555a866c11a8037f326a699f600de200a9dde8518122fb0b32"
+    },
+    "swiftui-pro": {
+      "source": "twostraws/swiftui-agent-skill",
+      "sourceType": "github",
+      "skillPath": "swiftui-pro/SKILL.md",
+      "computedHash": "07033426e384295a4b49cf0b2ffdefd4098cae4af53fef16bc1f2d9281118c41"
+    }
+  }
+}
