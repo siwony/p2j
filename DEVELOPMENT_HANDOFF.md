@@ -13,6 +13,8 @@ Stage: planning. iPhone MVP handoff ready. Native implementation/validation: dev
 
 ## 협업 규칙
 
+Development workflow: `CONTRIBUTING.md`. Agent instructions: `AGENTS.md`. Graphify: `docs/development/graphify.md`; generate/update only after main merge, current AI session owns labels.
+
 Latest user decision wins. Policy → product plan; values → tokens; screen behavior → screen spec. Update affected refs together. No duplicated rules.
 
 Apply project skills by responsibility:
@@ -28,7 +30,7 @@ Human planning/design docs: natural prose. This file + implementation contract: 
 
 ## 착수와 범위
 
-Resolve kickoff items in plan. Foundation → components → screens/storage → notifications/calendar → accessibility/real use. Current planning review: no development/deployment.
+Resolve kickoff items in plan. Foundation → components → screens/storage → notifications/calendar → accessibility/real use. Current work: development rules established; native implementation/deployment pending.
 
 MVP excludes Mac, CloudKit, server, account, payment. Native SwiftUI; no HTML WebView wrapper. Tests map to plan acceptance criteria.
 
