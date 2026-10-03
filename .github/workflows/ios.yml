@@ -1,0 +1,68 @@
+name: iOS
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: ios-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: iOS build and tests
+    runs-on: macos-15
+    timeout-minutes: 20
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.2.app/Contents/Developer
+    steps:
+      - name: Detect native changes
+        id: changes
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        with:
+          script: |
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              ...context.repo, pull_number: context.payload.pull_request.number, per_page: 100
+            });
+            const relevant = name => /^(Hanju\/|HanjuTests\/|HanjuUITests\/|Hanju\.xcodeproj\/|\.github\/workflows\/ios\.yml$)/.test(name);
+            core.setOutput('native', files.length >= 3000 || files.some(f => relevant(f.filename) || relevant(f.previous_filename || '')));
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        if: steps.changes.outputs.native == 'true'
+        with:
+          persist-credentials: false
+      - name: Select iPhone 15 Pro simulator
+        if: steps.changes.outputs.native == 'true'
+        run: |
+          xcodebuild -version
+          python3 - <<'PY'
+          import json, os, subprocess
+          runtimes = json.loads(subprocess.check_output(['xcrun', 'simctl', 'list', 'runtimes', '--json']))['runtimes']
+          ios = [r for r in runtimes if r['isAvailable'] and '.iOS-' in r['identifier']]
+          runtime = max(ios, key=lambda r: tuple(map(int, r['version'].split('.'))))
+          simulator = subprocess.check_output(['xcrun', 'simctl', 'create', 'Hanju CI', 'com.apple.CoreSimulator.SimDeviceType.iPhone-15-Pro', runtime['identifier']], text=True).strip()
+          with open(os.environ['GITHUB_ENV'], 'a') as f:
+              f.write(f'SIMULATOR_ID={simulator}\n')
+          print(f"iPhone 15 Pro / iOS {runtime['version']}")
+          PY
+      - name: Build and test
+        if: steps.changes.outputs.native == 'true'
+        run: >-
+          xcodebuild test -project Hanju.xcodeproj -scheme Hanju
+          -destination "platform=iOS Simulator,id=$SIMULATOR_ID"
+          -derivedDataPath DerivedData -resultBundlePath build/TestResults.xcresult
+          CODE_SIGNING_ALLOWED=NO
+      - name: Documentation-only change
+        if: steps.changes.outputs.native != 'true'
+        run: echo 'No native code or iOS workflow changes; native build not needed.'
+      - name: Save test results
+        if: always() && steps.changes.outputs.native == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ios-test-results
+          path: build/TestResults.xcresult
+          if-no-files-found: ignore
+          retention-days: 7

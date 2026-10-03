@@ -2,9 +2,9 @@
 
 ## 범위와 기준
 
-Planning only; implementation starts on separate dev request. Policy/acceptance: `docs/product-plan.md`. Screen/data state: `design/04-screens.md`. Visual values: `design/tokens.json`.
+Native foundation started in #4 after user development request. Full screen/AC implementation remains in follow-up issues. Policy/acceptance: `docs/product-plan.md`. Screen/data state: `design/04-screens.md`. Visual values: `design/tokens.json`.
 
-Proposed stack: SwiftUI, SwiftData, UserNotifications, EventKit. Dev kickoff sets deployment target, Swift, signing, test devices. Skill defaults do not override supported users. Verify unfamiliar APIs against target SDK + Apple docs; compile.
+Adopted stack: SwiftUI, SwiftData, UserNotifications, EventKit. iOS 17+, Swift 6 language mode, iPhone 15 Pro, personal device first; see `docs/adr/0001-native-ios-foundation.md`. Signing and actual device OS remain to verify. Skill defaults do not override supported users. Verify unfamiliar APIs against target SDK + Apple docs; compile.
 
 ## 구현 순서와 구조
 

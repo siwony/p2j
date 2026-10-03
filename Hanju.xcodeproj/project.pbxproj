@@ -1,0 +1,533 @@
+// !$*UTF8*$!
+{
+	"classes" = {
+	};
+	"objectVersion" = "56";
+	"archiveVersion" = "1";
+	"objects" = {
+		"98F54143AB4E86B28C3AFEE0" = {
+			"buildConfigurationList" = "FA52021448A4AC7DE6CD200E";
+			"targets" = (
+				"7D1043473D55BFA90E8530D3",
+				"A94A8FE5CCB19BA61C4C0873",
+				"636117B25F17DA7E91194E09",
+			);
+			"developmentRegion" = "ko";
+			"knownRegions" = (
+				"ko",
+				"en",
+				"Base",
+			);
+			"isa" = "PBXProject";
+			"compatibilityVersion" = "Xcode 14.0";
+			"productRefGroup" = "FBDC4F23F93125BBEEAE800C";
+			"projectDirPath" = "";
+			"attributes" = {
+				"LastUpgradeCheck" = "2620";
+				"BuildIndependentTargetsInParallel" = "YES";
+				"TargetAttributes" = {
+					"7D1043473D55BFA90E8530D3" = {
+						"CreatedOnToolsVersion" = "26.2";
+					};
+					"A94A8FE5CCB19BA61C4C0873" = {
+						"TestTargetID" = "7D1043473D55BFA90E8530D3";
+						"CreatedOnToolsVersion" = "26.2";
+					};
+					"636117B25F17DA7E91194E09" = {
+						"CreatedOnToolsVersion" = "26.2";
+						"TestTargetID" = "7D1043473D55BFA90E8530D3";
+					};
+				};
+			};
+			"hasScannedForEncodings" = "0";
+			"projectRoot" = "";
+			"mainGroup" = "7FEFA489E25E19BEF8A8A2A9";
+		};
+		"9B42F45108DFE5E4A3865ECA" = {
+			"path" = "Hanju/Design/DesignTokens.swift";
+			"isa" = "PBXFileReference";
+			"lastKnownFileType" = "sourcecode.swift";
+			"sourceTree" = "<group>";
+		};
+		"A5AF6D2BF457D03B5C100F47" = {
+			"path" = "Hanju/App/HanjuApp.swift";
+			"isa" = "PBXFileReference";
+			"lastKnownFileType" = "sourcecode.swift";
+			"sourceTree" = "<group>";
+		};
+		"FA52021448A4AC7DE6CD200E" = {
+			"isa" = "XCConfigurationList";
+			"defaultConfigurationIsVisible" = "0";
+			"defaultConfigurationName" = "Release";
+			"buildConfigurations" = (
+				"89E1FD6268CC0F221A2BE178",
+				"E6DE6C99132752C914FEF632",
+			);
+		};
+		"32DBCD880D01B657278B23D8" = {
+			"isa" = "PBXBuildFile";
+			"fileRef" = "B69DFEFAC67E20E7BAC0E63F";
+		};
+		"A6EA1BF31918A4381F8075DB" = {
+			"path" = "Hanju/App/AppTabs.swift";
+			"isa" = "PBXFileReference";
+			"lastKnownFileType" = "sourcecode.swift";
+			"sourceTree" = "<group>";
+		};
+		"7D1043473D55BFA90E8530D3" = {
+			"productType" = "com.apple.product-type.application";
+			"productReference" = "B9074B1E49FB5A6E382E802D";
+			"buildConfigurationList" = "0E13D5B4AB66EAE067648B8A";
+			"productName" = "Hanju";
+			"isa" = "PBXNativeTarget";
+			"buildPhases" = (
+				"CB1F8341FDD0D5C6400FDAF8",
+				"2A571BD1E9ABF4F122A8E632",
+				"0189424A5A60FED329FA868E",
+			);
+			"dependencies" = (
+			);
+			"name" = "Hanju";
+			"buildRules" = (
+			);
+		};
+		"FBDC4F23F93125BBEEAE800C" = {
+			"isa" = "PBXGroup";
+			"name" = "Products";
+			"children" = (
+				"B9074B1E49FB5A6E382E802D",
+				"2837729F05EE4B9FDCABF2CA",
+				"7A3935F4E215F68313C0378A",
+			);
+			"sourceTree" = "<group>";
+		};
+		"D799BAE6088A90139B415FCC" = {
+			"isa" = "PBXContainerItemProxy";
+			"containerPortal" = "98F54143AB4E86B28C3AFEE0";
+			"remoteGlobalIDString" = "7D1043473D55BFA90E8530D3";
+			"remoteInfo" = "Hanju";
+			"proxyType" = "1";
+		};
+		"5A8C91857F674E16E2724F47" = {
+			"isa" = "XCBuildConfiguration";
+			"buildSettings" = {
+				"LD_RUNPATH_SEARCH_PATHS" = "$(inherited) @executable_path/Frameworks";
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents" = "YES";
+				"DEBUG_INFORMATION_FORMAT" = "dwarf-with-dsym";
+				"MARKETING_VERSION" = "0.1.0";
+				"INFOPLIST_KEY_UISupportedInterfaceOrientations" = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				"GENERATE_INFOPLIST_FILE" = "YES";
+				"INFOPLIST_KEY_UILaunchScreen_Generation" = "YES";
+				"SWIFT_OPTIMIZATION_LEVEL" = "-O";
+				"INFOPLIST_KEY_CFBundleDisplayName" = "한 주";
+				"ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME" = "AccentColor";
+				"PRODUCT_NAME" = "$(TARGET_NAME)";
+				"INFOPLIST_KEY_LSApplicationCategoryType" = "public.app-category.productivity";
+				"CURRENT_PROJECT_VERSION" = "1";
+				"PRODUCT_BUNDLE_IDENTIFIER" = "com.siwony.hanju";
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation" = "YES";
+			};
+			"name" = "Release";
+		};
+		"4E4A4BA82B09024F0C5A5DDA" = {
+			"isa" = "PBXBuildFile";
+			"fileRef" = "00DB57B94A4FE39D4732A59D";
+		};
+		"3FDA45C111940AB7EEC171F1" = {
+			"isa" = "XCConfigurationList";
+			"defaultConfigurationIsVisible" = "0";
+			"defaultConfigurationName" = "Release";
+			"buildConfigurations" = (
+				"FCB48D8F88BCDB0ED9FADFD7",
+				"942EEBBACD6C88CAE7F29B29",
+			);
+		};
+		"457B179DAD0F912C83A78C31" = {
+			"isa" = "PBXBuildFile";
+			"fileRef" = "5D4B5EBC87F21668EC5EFC99";
+		};
+		"A94A8FE5CCB19BA61C4C0873" = {
+			"productType" = "com.apple.product-type.bundle.unit-test";
+			"productReference" = "2837729F05EE4B9FDCABF2CA";
+			"buildConfigurationList" = "3FDA45C111940AB7EEC171F1";
+			"productName" = "HanjuTests";
+			"isa" = "PBXNativeTarget";
+			"buildPhases" = (
+				"D13161A084ABB15E36E9C5E4",
+				"C99E2D31C4EA76F7C528D5F9",
+			);
+			"dependencies" = (
+				"58A5D8785D26BBB94CE615BB",
+			);
+			"name" = "HanjuTests";
+			"buildRules" = (
+			);
+		};
+		"631B1F99A25456BF6E0B569C" = {
+			"path" = "Hanju/Features/Library/RoutineWriter.swift";
+			"isa" = "PBXFileReference";
+			"lastKnownFileType" = "sourcecode.swift";
+			"sourceTree" = "<group>";
+		};
+		"0E13D5B4AB66EAE067648B8A" = {
+			"isa" = "XCConfigurationList";
+			"defaultConfigurationIsVisible" = "0";
+			"defaultConfigurationName" = "Release";
+			"buildConfigurations" = (
+				"E9B2E96ABC5F6856F2BE79CF",
+				"5A8C91857F674E16E2724F47",
+			);
+		};
+		"2A571BD1E9ABF4F122A8E632" = {
+			"isa" = "PBXFrameworksBuildPhase";
+			"buildActionMask" = "2147483647";
+			"files" = (
+			);
+			"runOnlyForDeploymentPostprocessing" = "0";
+		};
+		"2837729F05EE4B9FDCABF2CA" = {
+			"path" = "HanjuTests.xctest";
+			"isa" = "PBXFileReference";
+			"includeInIndex" = "0";
+			"explicitFileType" = "wrapper.cfbundle";
+			"sourceTree" = "BUILT_PRODUCTS_DIR";
+		};
+		"4F2B93DFE88A60E432A408EE" = {
+			"isa" = "PBXBuildFile";
+			"fileRef" = "631B1F99A25456BF6E0B569C";
+		};
+		"E6DE6C99132752C914FEF632" = {
+			"isa" = "XCBuildConfiguration";
+			"buildSettings" = {
+				"SUPPORTED_PLATFORMS" = "iphoneos iphonesimulator";
+				"CLANG_ENABLE_MODULES" = "YES";
+				"IPHONEOS_DEPLOYMENT_TARGET" = "17.0";
+				"DEBUG_INFORMATION_FORMAT" = "dwarf-with-dsym";
+				"SUPPORTS_MACCATALYST" = "NO";
+				"SWIFT_VERSION" = "6.0";
+				"SDKROOT" = "iphoneos";
+				"CODE_SIGN_STYLE" = "Automatic";
+				"TARGETED_DEVICE_FAMILY" = "1";
+				"SWIFT_OPTIMIZATION_LEVEL" = "-O";
+				"SWIFT_STRICT_CONCURRENCY" = "complete";
+			};
+			"name" = "Release";
+		};
+		"FCB48D8F88BCDB0ED9FADFD7" = {
+			"isa" = "XCBuildConfiguration";
+			"buildSettings" = {
+				"GENERATE_INFOPLIST_FILE" = "YES";
+				"SWIFT_ACTIVE_COMPILATION_CONDITIONS" = "DEBUG $(inherited)";
+				"DEBUG_INFORMATION_FORMAT" = "dwarf";
+				"TEST_HOST" = "$(BUILT_PRODUCTS_DIR)/Hanju.app/Hanju";
+				"LD_RUNPATH_SEARCH_PATHS" = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				"PRODUCT_BUNDLE_IDENTIFIER" = "com.siwony.hanju.tests";
+				"SWIFT_OPTIMIZATION_LEVEL" = "-Onone";
+				"ENABLE_TESTABILITY" = "YES";
+				"BUNDLE_LOADER" = "$(TEST_HOST)";
+				"PRODUCT_NAME" = "$(TARGET_NAME)";
+			};
+			"name" = "Debug";
+		};
+		"14DF19BF13C3A88250A81E5A" = {
+			"path" = "Hanju/Models/HanjuSchemaV1.swift";
+			"isa" = "PBXFileReference";
+			"lastKnownFileType" = "sourcecode.swift";
+			"sourceTree" = "<group>";
+		};
+		"CF8A4D27E1C506A7C75A76BE" = {
+			"isa" = "PBXBuildFile";
+			"fileRef" = "3685E330EC5277A9DD5661C6";
+		};
+		"7B44A52F13328BBAD88D6585" = {
+			"path" = "Hanju/Persistence/PersistenceStore.swift";
+			"isa" = "PBXFileReference";
+			"lastKnownFileType" = "sourcecode.swift";
+			"sourceTree" = "<group>";
+		};
+		"3685E330EC5277A9DD5661C6" = {
+			"path" = "Hanju/Assets.xcassets";
+			"isa" = "PBXFileReference";
+			"lastKnownFileType" = "folder.assetcatalog";
+			"sourceTree" = "<group>";
+		};
+		"74740D9A08D4E2260DA9AC75" = {
+			"isa" = "PBXBuildFile";
+			"fileRef" = "12C87C36CC8771F9F9AEE4BD";
+		};
+		"6C45F0587EE4F19F9B4F59C3" = {
+			"isa" = "PBXBuildFile";
+			"fileRef" = "9B42F45108DFE5E4A3865ECA";
+		};
+		"0189424A5A60FED329FA868E" = {
+			"isa" = "PBXResourcesBuildPhase";
+			"buildActionMask" = "2147483647";
+			"files" = (
+				"CF8A4D27E1C506A7C75A76BE",
+			);
+			"runOnlyForDeploymentPostprocessing" = "0";
+		};
+		"B69DFEFAC67E20E7BAC0E63F" = {
+			"path" = "Hanju/Features/Library/LibraryView.swift";
+			"isa" = "PBXFileReference";
+			"lastKnownFileType" = "sourcecode.swift";
+			"sourceTree" = "<group>";
+		};
+		"58A5D8785D26BBB94CE615BB" = {
+			"isa" = "PBXTargetDependency";
+			"target" = "7D1043473D55BFA90E8530D3";
+			"targetProxy" = "D799BAE6088A90139B415FCC";
+		};
+		"7BD36A437A959E039522CF92" = {
+			"isa" = "PBXBuildFile";
+			"fileRef" = "14DF19BF13C3A88250A81E5A";
+		};
+		"00DB57B94A4FE39D4732A59D" = {
+			"path" = "Hanju/Features/Library/RoutineDraft.swift";
+			"isa" = "PBXFileReference";
+			"lastKnownFileType" = "sourcecode.swift";
+			"sourceTree" = "<group>";
+		};
+		"2B7946AD378FA8BDA2431A38" = {
+			"isa" = "PBXBuildFile";
+			"fileRef" = "A6EA1BF31918A4381F8075DB";
+		};
+		"4E1CC5DD671130DE328DA475" = {
+			"isa" = "PBXBuildFile";
+			"fileRef" = "A5AF6D2BF457D03B5C100F47";
+		};
+		"5D4B5EBC87F21668EC5EFC99" = {
+			"path" = "Hanju/Features/Library/RoutineEditorSheet.swift";
+			"isa" = "PBXFileReference";
+			"lastKnownFileType" = "sourcecode.swift";
+			"sourceTree" = "<group>";
+		};
+		"4A76167F00330E8B8740619F" = {
+			"isa" = "PBXBuildFile";
+			"fileRef" = "7B44A52F13328BBAD88D6585";
+		};
+		"B9074B1E49FB5A6E382E802D" = {
+			"path" = "Hanju.app";
+			"isa" = "PBXFileReference";
+			"includeInIndex" = "0";
+			"explicitFileType" = "wrapper.application";
+			"sourceTree" = "BUILT_PRODUCTS_DIR";
+		};
+		"7FEFA489E25E19BEF8A8A2A9" = {
+			"isa" = "PBXGroup";
+			"sourceTree" = "<group>";
+			"children" = (
+				"A0A98C8CDD30CDD80E27FE8F",
+				"14DF19BF13C3A88250A81E5A",
+				"A6EA1BF31918A4381F8075DB",
+				"A5AF6D2BF457D03B5C100F47",
+				"9B42F45108DFE5E4A3865ECA",
+				"B69DFEFAC67E20E7BAC0E63F",
+				"00DB57B94A4FE39D4732A59D",
+				"5D4B5EBC87F21668EC5EFC99",
+				"631B1F99A25456BF6E0B569C",
+				"A6733113F7B431CACB495C60",
+				"7B44A52F13328BBAD88D6585",
+				"12C87C36CC8771F9F9AEE4BD",
+				"3685E330EC5277A9DD5661C6",
+				"FBDC4F23F93125BBEEAE800C",
+			);
+		};
+		"CB1F8341FDD0D5C6400FDAF8" = {
+			"isa" = "PBXSourcesBuildPhase";
+			"buildActionMask" = "2147483647";
+			"files" = (
+				"2B7946AD378FA8BDA2431A38",
+				"4E1CC5DD671130DE328DA475",
+				"6C45F0587EE4F19F9B4F59C3",
+				"32DBCD880D01B657278B23D8",
+				"4E4A4BA82B09024F0C5A5DDA",
+				"457B179DAD0F912C83A78C31",
+				"4F2B93DFE88A60E432A408EE",
+				"854695F73843B43536EED4AB",
+				"4A76167F00330E8B8740619F",
+				"7BD36A437A959E039522CF92",
+			);
+			"runOnlyForDeploymentPostprocessing" = "0";
+		};
+		"A6733113F7B431CACB495C60" = {
+			"path" = "Hanju/Models/RoutineTemplate.swift";
+			"isa" = "PBXFileReference";
+			"lastKnownFileType" = "sourcecode.swift";
+			"sourceTree" = "<group>";
+		};
+		"D13161A084ABB15E36E9C5E4" = {
+			"isa" = "PBXSourcesBuildPhase";
+			"buildActionMask" = "2147483647";
+			"files" = (
+				"74740D9A08D4E2260DA9AC75",
+			);
+			"runOnlyForDeploymentPostprocessing" = "0";
+		};
+		"942EEBBACD6C88CAE7F29B29" = {
+			"isa" = "XCBuildConfiguration";
+			"buildSettings" = {
+				"GENERATE_INFOPLIST_FILE" = "YES";
+				"DEBUG_INFORMATION_FORMAT" = "dwarf-with-dsym";
+				"TEST_HOST" = "$(BUILT_PRODUCTS_DIR)/Hanju.app/Hanju";
+				"LD_RUNPATH_SEARCH_PATHS" = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				"SWIFT_OPTIMIZATION_LEVEL" = "-O";
+				"PRODUCT_BUNDLE_IDENTIFIER" = "com.siwony.hanju.tests";
+				"BUNDLE_LOADER" = "$(TEST_HOST)";
+				"PRODUCT_NAME" = "$(TARGET_NAME)";
+			};
+			"name" = "Release";
+		};
+		"854695F73843B43536EED4AB" = {
+			"isa" = "PBXBuildFile";
+			"fileRef" = "A6733113F7B431CACB495C60";
+		};
+		"C99E2D31C4EA76F7C528D5F9" = {
+			"isa" = "PBXFrameworksBuildPhase";
+			"buildActionMask" = "2147483647";
+			"files" = (
+			);
+			"runOnlyForDeploymentPostprocessing" = "0";
+		};
+		"89E1FD6268CC0F221A2BE178" = {
+			"isa" = "XCBuildConfiguration";
+			"buildSettings" = {
+				"SWIFT_ACTIVE_COMPILATION_CONDITIONS" = "DEBUG $(inherited)";
+				"DEBUG_INFORMATION_FORMAT" = "dwarf";
+				"TARGETED_DEVICE_FAMILY" = "1";
+				"CLANG_ENABLE_MODULES" = "YES";
+				"ENABLE_TESTABILITY" = "YES";
+				"SWIFT_OPTIMIZATION_LEVEL" = "-Onone";
+				"SUPPORTED_PLATFORMS" = "iphoneos iphonesimulator";
+				"CODE_SIGN_STYLE" = "Automatic";
+				"SDKROOT" = "iphoneos";
+				"SWIFT_VERSION" = "6.0";
+				"SWIFT_STRICT_CONCURRENCY" = "complete";
+				"IPHONEOS_DEPLOYMENT_TARGET" = "17.0";
+				"SUPPORTS_MACCATALYST" = "NO";
+			};
+			"name" = "Debug";
+		};
+		"E9B2E96ABC5F6856F2BE79CF" = {
+			"isa" = "XCBuildConfiguration";
+			"buildSettings" = {
+				"LD_RUNPATH_SEARCH_PATHS" = "$(inherited) @executable_path/Frameworks";
+				"SWIFT_ACTIVE_COMPILATION_CONDITIONS" = "DEBUG $(inherited)";
+				"DEBUG_INFORMATION_FORMAT" = "dwarf";
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents" = "YES";
+				"MARKETING_VERSION" = "0.1.0";
+				"INFOPLIST_KEY_UISupportedInterfaceOrientations" = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				"ENABLE_TESTABILITY" = "YES";
+				"GENERATE_INFOPLIST_FILE" = "YES";
+				"INFOPLIST_KEY_UILaunchScreen_Generation" = "YES";
+				"SWIFT_OPTIMIZATION_LEVEL" = "-Onone";
+				"INFOPLIST_KEY_CFBundleDisplayName" = "한 주";
+				"ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME" = "AccentColor";
+				"PRODUCT_NAME" = "$(TARGET_NAME)";
+				"INFOPLIST_KEY_LSApplicationCategoryType" = "public.app-category.productivity";
+				"CURRENT_PROJECT_VERSION" = "1";
+				"PRODUCT_BUNDLE_IDENTIFIER" = "com.siwony.hanju";
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation" = "YES";
+			};
+			"name" = "Debug";
+		};
+		"12C87C36CC8771F9F9AEE4BD" = {
+			"path" = "HanjuTests/RoutinePersistenceTests.swift";
+			"isa" = "PBXFileReference";
+			"lastKnownFileType" = "sourcecode.swift";
+			"sourceTree" = "<group>";
+		};
+		"A0A98C8CDD30CDD80E27FE8F" = {
+			"isa" = "PBXFileReference";
+			"lastKnownFileType" = "sourcecode.swift";
+			"path" = "HanjuUITests/RoutineLibraryUITests.swift";
+			"sourceTree" = "<group>";
+		};
+		"4B39B72DD1C4587603748528" = {
+			"isa" = "PBXBuildFile";
+			"fileRef" = "A0A98C8CDD30CDD80E27FE8F";
+		};
+		"7A3935F4E215F68313C0378A" = {
+			"isa" = "PBXFileReference";
+			"explicitFileType" = "wrapper.cfbundle";
+			"includeInIndex" = 0;
+			"path" = "HanjuUITests.xctest";
+			"sourceTree" = "BUILT_PRODUCTS_DIR";
+		};
+		"C704245C4DF5495CBA4ACAC0" = {
+			"isa" = "PBXSourcesBuildPhase";
+			"buildActionMask" = 2147483647;
+			"files" = (
+				"4B39B72DD1C4587603748528",
+			);
+			"runOnlyForDeploymentPostprocessing" = 0;
+		};
+		"D13939E35B55FCD871B2D5D5" = {
+			"isa" = "PBXFrameworksBuildPhase";
+			"buildActionMask" = 2147483647;
+			"files" = (
+			);
+			"runOnlyForDeploymentPostprocessing" = 0;
+		};
+		"94C1D7A82E2F92E70C5BA5D8" = {
+			"isa" = "XCBuildConfiguration";
+			"buildSettings" = {
+				"GENERATE_INFOPLIST_FILE" = "YES";
+				"SWIFT_ACTIVE_COMPILATION_CONDITIONS" = "DEBUG $(inherited)";
+				"DEBUG_INFORMATION_FORMAT" = "dwarf";
+				"LD_RUNPATH_SEARCH_PATHS" = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				"PRODUCT_BUNDLE_IDENTIFIER" = "com.siwony.hanju.uitests";
+				"SWIFT_OPTIMIZATION_LEVEL" = "-Onone";
+				"ENABLE_TESTABILITY" = "YES";
+				"PRODUCT_NAME" = "$(TARGET_NAME)";
+				"TEST_TARGET_NAME" = "Hanju";
+			};
+			"name" = "Debug";
+		};
+		"9609A256A79253DD705A918E" = {
+			"isa" = "XCBuildConfiguration";
+			"buildSettings" = {
+				"GENERATE_INFOPLIST_FILE" = "YES";
+				"DEBUG_INFORMATION_FORMAT" = "dwarf-with-dsym";
+				"LD_RUNPATH_SEARCH_PATHS" = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				"SWIFT_OPTIMIZATION_LEVEL" = "-O";
+				"PRODUCT_BUNDLE_IDENTIFIER" = "com.siwony.hanju.uitests";
+				"PRODUCT_NAME" = "$(TARGET_NAME)";
+				"TEST_TARGET_NAME" = "Hanju";
+			};
+			"name" = "Release";
+		};
+		"23F5692E4640BB8F585CA6AD" = {
+			"isa" = "XCConfigurationList";
+			"buildConfigurations" = (
+				"94C1D7A82E2F92E70C5BA5D8",
+				"9609A256A79253DD705A918E",
+			);
+			"defaultConfigurationIsVisible" = 0;
+			"defaultConfigurationName" = "Release";
+		};
+		"2DCD587166E0EE0C3F4DA988" = {
+			"isa" = "PBXTargetDependency";
+			"target" = "7D1043473D55BFA90E8530D3";
+			"targetProxy" = "D799BAE6088A90139B415FCC";
+		};
+		"636117B25F17DA7E91194E09" = {
+			"isa" = "PBXNativeTarget";
+			"buildConfigurationList" = "23F5692E4640BB8F585CA6AD";
+			"buildPhases" = (
+				"C704245C4DF5495CBA4ACAC0",
+				"D13939E35B55FCD871B2D5D5",
+			);
+			"buildRules" = (
+			);
+			"dependencies" = (
+				"2DCD587166E0EE0C3F4DA988",
+			);
+			"name" = "HanjuUITests";
+			"productName" = "HanjuUITests";
+			"productReference" = "7A3935F4E215F68313C0378A";
+			"productType" = "com.apple.product-type.bundle.ui-testing";
+		};
+	};
+	"rootObject" = "98F54143AB4E86B28C3AFEE0";
+}
