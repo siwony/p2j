@@ -2,18 +2,20 @@
 
 2026-10-04 · 모든 단계는 실제 이슈 → 구현 → 독립 Codex/Copilot 리뷰 → 검증 → PR 병합 순서다. 단계 완료와 MVP 인수를 구분한다.
 
+기획 1.3 / [#18](https://github.com/siwony/p2j/issues/18): [변경 인계](planning-revision-1.3.md) 먼저 확인. Policy adopted; implementation pending. #8~#13의 개정 AC·시나리오 적용. 기존 개발 순서 유지.
+
 | 순서 | 이슈 | 범위와 선행 조건 |
 | --- | --- | --- |
 | 1 | [#1](https://github.com/siwony/p2j/issues/1) | 협업 규칙, 병합 후 Graphify 최초 생성 완료(PR #2, #5) |
 | 2 | [#3](https://github.com/siwony/p2j/issues/3) | AI 리뷰·PR 이슈 검사·main 보호 완료(PR #6) |
 | 3 | [#4](https://github.com/siwony/p2j/issues/4) | 네이티브 프로젝트·저장 경계·이름 등록·빌드 검증. 전체 기능 AC를 완료하지 않는다 |
 | 4 | [#7](https://github.com/siwony/p2j/issues/7) | 루틴 편집·선택 필드·보관/복원, dirty swipe 취소 확인과 초점 복원 |
-| 5 | [#8](https://github.com/siwony/p2j/issues/8) | LocalDate·주간 계획·회차 snapshot·중복 확정 방지·일정 조정 |
-| 6 | [#9](https://github.com/siwony/p2j/issues/9) | 단일 실행·직접 완료·수정·재실행 복원. #8 데이터 계약 선행 |
-| 7 | [#10](https://github.com/siwony/p2j/issues/10) | 기록 집계·자유 메모. #9 완료 기록 선행 |
-| 8 | [#11](https://github.com/siwony/p2j/issues/11) | 로컬 알림과 수동 재알림. #8/#9 상태변경 계약 선행 |
-| 9 | [#12](https://github.com/siwony/p2j/issues/12) | 캘린더 반영·외부 변경·중단 후 재시도. #8/#9 선행, 중복 방지 실험 먼저 |
-| 10 | [#13](https://github.com/siwony/p2j/issues/13) | 실기기·접근성·전체 AC 인수 및 실제 2주 실사용 |
+| 5 | [#8](https://github.com/siwony/p2j/issues/8) | LocalDate·주간 계획·snapshot·중복 방지. 일괄 쉬기/복원 + Today→Week 재계획 진입 소유 |
+| 6 | [#9](https://github.com/siwony/p2j/issues/9) | 단일 실행·직접 완료·재실행 복원 + 수행일 정정. #8 선행; 실행 중 일괄 쉬기 원자성 통합 |
+| 7 | [#10](https://github.com/siwony/p2j/issues/10) | 수행일 기준 두 주 집계 + 행동 우선 기록 + 자유 메모. #9 완료 기록 선행 |
+| 8 | [#11](https://github.com/siwony/p2j/issues/11) | 알림/수동 snooze + 일괄 쉬기·복원·재계획 후 예약 정리. #8/#9 선행 |
+| 9 | [#12](https://github.com/siwony/p2j/issues/12) | 주별 연결·신규 항목 자동 반영·해제/재연결·주 이동·외부 변경·중단 복구. #8/#9 선행 |
+| 10 | [#13](https://github.com/siwony/p2j/issues/13) | 실기기·접근성·전체 AC + 놓침/쉬기/늦은 기록/복귀 시나리오, 실제 2주 실사용 |
 
 사용자가 순차 구현을 요청했다. 독립적인 기술 조사·리뷰는 병렬로 진행할 수 있으며, 기능 구현 순서는 위 의존성을 따른다. 한 단계의 실패를 성공으로 표시하고 넘어가지 않는다.
 
@@ -25,6 +27,8 @@
 - `review_rules_pr`: 구현하지 않은 Codex의 diff·정책·실패 경로 리뷰.
 
 후속 구현 시작 때 해당 이슈에 구현자·리뷰어·허용 파일을 다시 배정한다. 공용 모델과 프로젝트 파일을 기능 담당들이 동시에 수정하지 않는다.
+
+1.3 integration: #8 owns rest/replan command + route contract; #9 adds recorder atomics + performed date; #10 consumes performed-date grouping; #11/#12 consume committed transitions. #8의 계획 기능 완료가 아직 없는 recorder/OS 연동까지 검증했다는 뜻은 아니다. 각 이슈가 담당 결합부를 검증하고 #13에서 전체 인수한다.
 
 ## 기반 단계의 경계
 

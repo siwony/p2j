@@ -4,6 +4,8 @@
 
 Native foundation started in #4 after user development request. Full screen/AC implementation remains in follow-up issues. Policy/acceptance: `docs/product-plan.md`. Screen/data state: `design/04-screens.md`. Visual values: `design/tokens.json`.
 
+Spec 1.3 / #18: read `docs/development/planning-revision-1.3.md` before #8–#13. Bulk rest, recovery entry, editable performed date, per-week calendar connection, action-first Records. Docs changed; app implementation pending.
+
 Adopted stack: SwiftUI, SwiftData, UserNotifications, EventKit. iOS 17+, Swift 6 language mode, iPhone 15 Pro, personal device first; see `docs/adr/0001-native-ios-foundation.md`. Signing and actual device OS remain to verify. Skill defaults do not override supported users. Verify unfamiliar APIs against target SDK + Apple docs; compile.
 
 ## 구현 순서와 구조
@@ -22,6 +24,16 @@ Sheet owns draft. Save success → dismiss; failure → preserve input. Block co
 
 App save and OS updates: separate outcomes. App saved + OS failed → pending/retry. Never show failed save as success or erase plan on calendar failure.
 
+RestWeek command: stable confirmed ID set; current-week unfinished only. Pause target running interval + skip set atomically. Failure → original running/state. Preserve completed/intervals. Restore same ID; later additions unaffected. OS cleanup follows app commit.
+
+Late completion: Week past-date/prior-week planned/paused → visible already-done action. Same ID/planned date; keep measured intervals, nil duration only without history.
+
+Completion lifecycle: undo clears active completedAt/completionLocalDate/performedOn + removes aggregation; keep intervals/time. Recomplete captures new instant/local date; performedOn defaults to new date. Failed command preserves prior state. Date-only edits retain capture values.
+
+Completion date: `performedOn` owns Records day/week grouping; default `completionLocalDate`. Edit date only; keep `completedAt`, measured intervals, duration, planned date. Reject future date edits. Recompute both weeks; never move memo/calendar or create second completion.
+
+Calendar intent belongs to WeekPlan; new/copied week defaults off. Connected week additions/changes/rest/restore schedule automatic export. Off suspends queued writes; keep existing events + links. Reconnect/move reuse links + compare external snapshots. Recheck current intent/state before each OS write; stale queued jobs must not resurrect skipped events.
+
 Elapsed = start/end instants minus pause intervals. UI tick display only. Restore from timestamp after background/relaunch. No persistence, calendar I/O, whole-history sorting in body.
 
 ## 네이티브 탐색과 입력
@@ -32,9 +44,13 @@ Dismiss restores caller tab/date/scroll/focus. Reschedule save success alone ope
 
 Use semantic Button/Toggle/Picker/DatePicker. Swipe/drag supplementary; primary actions always visible. Label icons. No nested sheets.
 
+Recovery: Today quiet action → Week selection; current-week past planned/paused only; default none. Skip/completed/prior-week excluded. Confirm moves same IDs; cancel unchanged. Empty midweek → remaining-week planner. Completion date editor remains optional; direct completion stays one tap.
+
 ## 시각·모션·접근성
 
 standard profile. Korean system type, 4pt spacing, forest accent, opaque content. OS owns navigation/control materials. Map tokens to semantic Swift constants + light/dark assets. No per-screen magic values.
+
+Records order: performed-date completed rows → routine counts → optional time → memo. Timeless completion equal weight. All nil durations → hide aggregate, never imply 0. Recovery entry: no count/badge/automatic alert.
 
 Scale token type with Dynamic Type; intrinsic row height. No fixed line-height frames or shrinking long names. Large type: vertical actions. System safe areas + keyboard insets.
 
@@ -47,6 +63,8 @@ VoiceOver/Voice Control/keyboard/focus must operate start/complete/move/save. In
 ## 개발 검증
 
 Use plan acceptance criteria. Domain tests: intervals, week boundaries, snapshots, duplicate commands, calendar conflicts. No tests merely copying implementation.
+
+Add 1.3 scenarios: atomic rest/failure/restore; missed-day recovery; Sunday→Monday late entry + performed-date correction; reconnect + cross-week calendar move; all-timeless Records. Owners/cases: `docs/development/planning-revision-1.3.md`.
 
 Build actual scheme. Test smallest/typical/large supported iPhone; default/largest accessibility type; light/dark/increased contrast; long/empty/loading/failure content; portrait/landscape/keyboard; Reduce Motion/Transparency.
 
