@@ -6,22 +6,23 @@ struct AppTabs: View {
     }
 
     @State private var selection: Tab = .today
+    @State private var weekDay = LocalDate(.now)
+    @State private var weekRequest: WeekRequest?
 
     var body: some View {
         TabView(selection: $selection) {
             NavigationStack {
-                emptyScreen(title: "오늘", message: "오늘은 정해둔 일이 없어요.") {
-                    Button("이번 주 보기") { selection = .week }
-                    Button("루틴 만들러 가기") { selection = .library }
-                }
+                TodayView(openWeek: { day in weekDay = day; selection = .week },
+                    plan: { day in weekRequest = WeekRequest(kind: .plan, day: day); selection = .week },
+                    recover: { day in weekRequest = WeekRequest(kind: .recovery, day: day); selection = .week },
+                    openLibrary: { selection = .library })
             }
             .tabItem { Label("오늘", systemImage: "sun.max") }
             .tag(Tab.today)
 
             NavigationStack {
-                emptyScreen(title: "이번 주", message: "반복하고 싶은 일을 먼저 적어보세요.") {
-                    Button("루틴함 보기") { selection = .library }
-                }
+                WeekView(selectedDay: $weekDay, request: $weekRequest,
+                    returnToToday: { selection = .today }, openLibrary: { selection = .library })
             }
             .tabItem { Label("이번 주", systemImage: "calendar") }
             .tag(Tab.week)

@@ -2,7 +2,7 @@
 
 ## 상태와 읽는 순서
 
-Stage: foundation merged (#4); routine editing, optional fields, archive/restore, and draft dismissal implemented in #7. Full MVP acceptance pending. Product spec 1.3 adopted in #18; feature implementation pending in #8–#13.
+Stage: foundation merged (#4); routine editing, optional fields, archive/restore, and draft dismissal implemented in #7. Week planning, LocalDate, occurrence snapshots, move/skip/restore, bulk rest and Today recovery are implemented in #8. Full MVP acceptance pending. Product spec 1.3 adopted in #18; execution/OS/records integration pending in #9–#13.
 
 Before assigned work: `docs/development/planning-revision-1.3.md` → delta/AC/owner/scenarios. Reject stale 1.2 policies: empty-week-only rest, completion-entry-date aggregation, manual export of newly added items, time-first Records.
 
@@ -11,7 +11,7 @@ Before assigned work: `docs/development/planning-revision-1.3.md` → delta/AC/o
 3. `design/03-components.md`, `design/04-screens.md`: component/screen/state contracts. Read assigned feature first.
 4. `design/05-swiftui-handoff.md`: implementation + QA contract.
 
-`design/preview/index.html`: 1.2 visual example; five 1.3 changes absent. Docs own behavior. Never copy fixed date, sample data, simulated permissions into product logic. Graph provenance predates #18; recheck source docs. Graph update only after merge.
+`design/preview/index.html`: 1.2 visual example; five 1.3 changes absent. Docs own behavior. Never copy fixed date, sample data, simulated permissions into product logic. Graph freshness follows `graphify-out/provenance.json`; recheck source docs for changes newer than its source commit. Graph update only after merge.
 
 ## 협업 규칙
 
@@ -32,7 +32,7 @@ Human planning/design docs: natural prose. This file + implementation contract: 
 
 ## 착수와 범위
 
-Resolve kickoff items in plan. Foundation → components → screens/storage → notifications/calendar → accessibility/real use. Current work: development rules + AI review workflow merged. Foundation implementation/verification: #4; sequential features: `docs/development/implementation-plan.md`. Personal iPhone 15 Pro target; signing/device validation pending.
+Resolve kickoff items in plan. Foundation → components → screens/storage → notifications/calendar → accessibility/real use. Current work: development rules + AI review workflow merged. Foundation implementation/verification: #4; library: #7; planning: #8; sequential features: `docs/development/implementation-plan.md`. Personal iPhone 15 Pro target; signing/device validation pending.
 
 MVP excludes Mac, CloudKit, server, account, payment. Native SwiftUI; no HTML WebView wrapper. Tests map to plan acceptance criteria.
 

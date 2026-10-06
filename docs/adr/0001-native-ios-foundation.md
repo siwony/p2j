@@ -21,7 +21,7 @@ Flutter/React Native는 이 프로젝트에 필요한 네이티브 연동과 단
 - `HanjuTests`: 저장 재열기, 오류·검증 등 동작 중심 단위 테스트. `HanjuUITests`: 등록·재실행·취소 동선의 네이티브 UI 테스트.
 - `Hanju.xcodeproj`: 저장소에 포함하는 네이티브 프로젝트와 공유 Hanju scheme. 별도 프로젝트 생성 도구가 필요 없다.
 
-SwiftData의 앱 수명 ModelContainer를 사용하고 CloudKit을 명시적으로 비활성화한다. 저장소 열기 실패는 재시도 가능한 오류 화면으로 표시한다. DB 삭제·묵시적 초기화·메모리 DB 대체로 오류를 숨기지 않는다. 사용자 저장은 명시적 save 성공 뒤에만 화면을 닫는다. 최초 V1 VersionedSchema를 고정하고 다음 모델 변경 때 기존 store fixture로 이전을 검증한다.
+SwiftData의 앱 수명 ModelContainer를 사용하고 CloudKit을 명시적으로 비활성화한다. 저장소 열기 실패는 재시도 가능한 오류 화면으로 표시한다. DB 삭제·묵시적 초기화·메모리 DB 대체로 오류를 숨기지 않는다. 사용자 저장은 명시적 save 성공 뒤에만 화면을 닫는다. 최초 V1 VersionedSchema를 고정하고 다음 모델 변경 때 기존 store fixture로 이전을 검증한다. #8은 V1 루틴 정의를 그대로 재사용하고 주간 계획·회차를 V2에 추가하며, 명시적 lightweight 이전을 사용한다. 실제 V1 디스크 파일에서 ID·선택값·보관·시각 보존과 V2 재열기를 검증한다. 출시한 schema의 모델 정의는 이후에도 수정하지 않는다.
 
 편집은 값 타입 draft에서 처리하고 입력 검증은 저장 경계에서 수행한다. 공용 모델·프로젝트 설정은 한 명만 수정한다. 이후 모델과 상태 계약은 [데이터 계약](../development/data-contracts.md)을 따른다.
 

@@ -18,7 +18,7 @@ RoutineTemplate의 `preferredWeekdays`는 월요일 1~일요일 7이며 중복 �
 
 화면이 draft를 소유하고 명령 계층이 저장을 확정한다. 공용 저장소가 동시에 수행하는 명령을 직렬화한다. 저장 성공 뒤 알림·캘린더 부수 작업을 요청한다. OS 작업 실패는 pending/retry이며 앱 저장을 되돌리지 않는다. 모델 ID와 명령 ID는 렌더링마다 만들지 않는다.
 
-주간 확정은 draft에서 생성한 안정적인 occurrence ID를 재사용한다. 실행 서비스는 화면과 독립적인 앱 수명이며 동시에 running 하나를 보장한다. 계산은 실제 timestamp를 사용하고 UI tick은 표시 용도다. 캘린더 작업은 event 저장과 앱 연결 저장 사이의 중단도 다루는 재시도 계약을 기능 구현 전에 확정한다.
+주간 확정은 draft에서 생성한 안정적인 occurrence ID를 재사용한다. #8의 신규 회차 저장은 한 명령당 총 100회까지 처리한다. 배열을 생성하기 전에 합계·범위를 검증하며 초과 입력은 보존하고 나누어 추가하도록 안내한다. 이는 메모리 보호를 위한 명령 단위 제한이며 루틴의 기본 주간 횟수나 한 주 전체 회차 수를 제한하지 않는다. 실행 서비스는 화면과 독립적인 앱 수명이며 동시에 running 하나를 보장한다. 계산은 실제 timestamp를 사용하고 UI tick은 표시 용도다. 캘린더 작업은 event 저장과 앱 연결 저장 사이의 중단도 다루는 재시도 계약을 기능 구현 전에 확정한다.
 
 공용 모델·저장소·프로젝트 파일은 기반 담당이 단독 소유한다. 기능 담당은 이를 임의 확장하지 않고 필요한 변경을 개발총괄에게 전달한다. 프로토콜은 실제 OS 경계와 테스트 대역이 필요한 곳에만 도입한다.
 
@@ -33,7 +33,7 @@ RoutineTemplate의 `preferredWeekdays`는 월요일 1~일요일 7이며 중복 �
 - Rest/restore/replan trigger notification replacement + active-calendar reconciliation after app commit. Cancel stale normal/group/snooze requests; keep weekly planning preference. Integration failure ≠ failed app save. No recovery-entry notification.
 - Records: completed rows → counts → optional time → memo. All nil durations: no aggregate row. Otherwise sum only known duration; include unrecorded count as secondary detail. Rest/skipped excluded from completed metrics.
 
-These contracts define future #8–#12 work. Do not mutate shipped V1 schema in place; schema/fixture migration remains required when adding persisted models. No application implementation in #18.
+These contracts span #8–#12. #8 adds V2 WeekPlan/PlannedOccurrence and reuses the unchanged V1 RoutineTemplate. V1/V2 persisted definitions stay frozen after release; later model additions/changes require a new schema and disk-fixture migration checks. No application implementation in #18.
 
 ## 병렬 기술 조사에서 확정한 경계
 
