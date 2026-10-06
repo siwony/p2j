@@ -138,7 +138,7 @@ struct WeekView: View {
         }
         .confirmationDialog("이번 주에서는 건너뛸까요?", isPresented: $showSkip, titleVisibility: .visible) {
             Button("건너뛰기", role: .destructive, action: confirmSkip)
-            Button("취소") { if let skipTarget { focused = .row(skipTarget.id) } }
+            Button("취소", role: .cancel) { if let skipTarget { focused = .row(skipTarget.id) } }
         }
         .onAppear { refreshClock(); consumeRequest() }
         .onChange(of: selectedDay) { load() }

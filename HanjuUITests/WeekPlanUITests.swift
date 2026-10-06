@@ -24,11 +24,19 @@ final class WeekPlanUITests: XCTestCase {
         reveal(row, in: app, upward: false)
         XCTAssertTrue(row.waitForExistence(timeout: 5), app.debugDescription)
         row.buttons["건너뛰기"].tap()
-        XCTAssertTrue(app.buttons["취소"].waitForExistence(timeout: 5))
-        app.buttons["취소"].tap()
+        let confirmation = app.sheets["이번 주에서는 건너뛸까요?"]
+        XCTAssertTrue(confirmation.waitForExistence(timeout: 5), app.debugDescription)
+        if confirmation.buttons["취소"].exists {
+            confirmation.buttons["취소"].tap()
+        } else {
+            // Native popovers omit the cancel row and dismiss on an outside tap.
+            let outside = app.descendants(matching: .any).matching(identifier: "PopoverDismissRegion").firstMatch
+            XCTAssertTrue(outside.exists, app.debugDescription)
+            outside.tap()
+        }
+        XCTAssertTrue(confirmation.waitForNonExistence(timeout: 5), app.debugDescription)
         XCTAssertTrue(row.buttons["옮기기"].exists)
         row.buttons["건너뛰기"].tap()
-        let confirmation = app.sheets["이번 주에서는 건너뛸까요?"]
         XCTAssertTrue(confirmation.waitForExistence(timeout: 5), app.debugDescription)
         confirmation.buttons["건너뛰기"].tap()
         XCTAssertTrue(row.buttons["다시 계획하기"].waitForExistence(timeout: 5), app.debugDescription)
