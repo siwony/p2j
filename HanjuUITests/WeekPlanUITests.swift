@@ -39,7 +39,7 @@ final class WeekPlanUITests: XCTestCase {
         screenshot.name = "Week-agenda"; screenshot.lifetime = .keepAlways; add(screenshot)
         app.terminate(); app.launch()
         app.tabBars.buttons["이번 주"].tap()
-        reveal(row, in: app, upward: false)
+        reveal(row, in: app)
         XCTAssertTrue(row.buttons["옮기기"].waitForExistence(timeout: 5), app.debugDescription)
     }
 
