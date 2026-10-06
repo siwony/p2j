@@ -22,7 +22,7 @@ final class PersistenceStore {
         inMemory: Bool = false,
         storeURL: URL? = nil
     ) throws -> ModelContainer {
-        let schema = Schema(versionedSchema: HanjuSchemaV1.self)
+        let schema = Schema(versionedSchema: HanjuSchemaV2.self)
         let configuration: ModelConfiguration
         if let storeURL {
             configuration = ModelConfiguration(
@@ -33,7 +33,7 @@ final class PersistenceStore {
                 schema: schema, isStoredInMemoryOnly: inMemory, cloudKitDatabase: .none
             )
         }
-        let container = try ModelContainer(for: schema, configurations: [configuration])
+        let container = try ModelContainer(for: schema, migrationPlan: HanjuMigrationPlan.self, configurations: [configuration])
         container.mainContext.autosaveEnabled = false
         return container
     }
