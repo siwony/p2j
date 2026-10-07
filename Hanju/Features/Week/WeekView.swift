@@ -29,6 +29,11 @@ struct WeekView: View {
     @State private var skipTarget: OccurrenceSnapshot?
     @State private var showSkip = false
     @State private var restNoticeWeek: LocalDate?
+    private struct RunningRoute: Hashable { let id: UUID }
+    @State private var runningRoute: RunningRoute?
+    @State private var pendingStart: ExecutionSnapshot?
+    @State private var replacing: ExecutionSnapshot?
+    @State private var confirmSwitch = false
     @AccessibilityFocusState private var focused: Focus?
     @State private var callerFocus: Focus = .plan
     private enum Focus: Hashable { case plan, rest, day, row(UUID) }
@@ -107,7 +112,7 @@ struct WeekView: View {
             }
             if rows.contains(where: { $0.status == .skipped }) {
                 Section {
-                    if restNoticeWeek == week { Text("이번 주 남은 일정은 쉬기로 했어요.") }
+                    if restNoticeWeek == week && unfinished.isEmpty { Text("이번 주 남은 일정은 쉬기로 했어요.") }
                     DisclosureGroup("쉬기로 한 일정 보기") {
                         ForEach(rows.filter { $0.status == .skipped }) { row in
                             VStack(alignment: .leading) {
@@ -136,6 +141,7 @@ struct WeekView: View {
         }
         .listStyle(.plain).scrollContentBackground(.hidden).background(DesignTokens.background)
         .navigationTitle("이번 주")
+        .navigationDestination(item: $runningRoute) { route in RunningRoutineView(occurrenceID: route.id, returnLabel: "이번 주로 돌아가기") }
         .sheet(item: $editor, onDismiss: didDismiss) { item in
             switch item.kind {
             case .plan:
@@ -147,11 +153,16 @@ struct WeekView: View {
             }
         }
         .confirmationDialog("이번 주에서는 건너뛸까요?", isPresented: $showSkip, titleVisibility: .visible) {
-            Button("건너뛰기", role: .destructive, action: confirmSkip)
+            Button("건너뛰기", action: confirmSkip)
             Button("취소", role: .cancel) { if let skipTarget { focused = .row(skipTarget.id) } }
         }
+        .confirmationDialog("하던 일을 일시정지하고 시작할까요?", isPresented: $confirmSwitch, titleVisibility: .visible) {
+            Button("일시정지하고 시작") { if let pendingStart { resume(pendingStart, replacing: replacing) } }
+            Button("취소", role: .cancel) { if let pendingStart { focused = .row(pendingStart.id) } }
+        } message: { if let replacing { Text(replacing.occurrence.name) } }
         .onAppear { refreshClock(); consumeRequest() }
         .onChange(of: selectedDay) { load() }
+        .onChange(of: runningRoute) { if runningRoute == nil { focused = callerFocus } }
         .onChange(of: recorder.revision) { load() }
         .onChange(of: request) { consumeRequest() }
         .onChange(of: scenePhase) { if scenePhase == .active { refreshClock() } }
@@ -159,6 +170,9 @@ struct WeekView: View {
         .onReceive(NotificationCenter.default.publisher(for: .NSSystemTimeZoneDidChange)) { _ in refreshClock() }
     }
     @ViewBuilder private func rowActions(_ row: OccurrenceSnapshot) -> some View {
+        if row.status == .paused {
+            Button("이어서 하기") { start(row.id) }.buttonStyle(.borderless)
+        }
         if row.canReplan {
             Button("이미 했어요") {
                 do { try recorder.complete(recorder.read(row.id)); completedNotice = row.id; load() }
@@ -169,6 +183,18 @@ struct WeekView: View {
             .buttonStyle(.borderless)
         Button("건너뛰기") { skipTarget = row; showSkip = true }
             .buttonStyle(.borderless)
+    }
+    private func start(_ id: UUID) {
+        do {
+            let source = try recorder.read(id)
+            if let active = recorder.active, active.id != id {
+                pendingStart = source; replacing = active; confirmSwitch = true
+            } else { resume(source) }
+        } catch { self.error = error.localizedDescription }
+    }
+    private func resume(_ source: ExecutionSnapshot, replacing active: ExecutionSnapshot? = nil) {
+        do { try recorder.start(source, replacing: active); callerFocus = .row(source.id); runningRoute = RunningRoute(id: source.id); load() }
+        catch { self.error = error.localizedDescription; focused = .row(source.id) }
     }
     private func editCompletion(_ id: UUID) {
         do {

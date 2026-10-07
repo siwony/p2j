@@ -144,6 +144,141 @@ final class ExecutionUITests: XCTestCase {
         XCTAssertFalse(app.cells.containing(.staticText, identifier: name).firstMatch.exists)
     }
 
+    @MainActor
+    func testPastWeekPausedResumeConfirmsSwitchAndReturnsToSamePlan() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(ko)", "-AppleLocale", "ko_KR"]
+        app.launch()
+        let first = "Past \(UUID().uuidString.prefix(6))", second = "Other \(UUID().uuidString.prefix(6))"
+        try createTodayPlans([first, second], in: app)
+        app.tabBars.buttons["오늘"].tap()
+        let todayRow = app.cells.containing(.staticText, identifier: first).firstMatch
+        reveal(todayRow, in: app); todayRow.buttons["시작"].tap()
+        if app.buttons["일시정지하고 시작"].exists { app.buttons["일시정지하고 시작"].tap() }
+        app.buttons["일시정지"].tap(); app.buttons["오늘로 돌아가기"].tap()
+        app.tabBars.buttons["이번 주"].tap()
+        let firstRow = app.cells.containing(.staticText, identifier: first).firstMatch
+        reveal(firstRow, in: app, upward: false); if !firstRow.buttons.firstMatch.isHittable { reveal(firstRow, in: app) }
+        let rowID = firstRow.buttons["이어서 하기"].identifier
+        XCTAssertTrue(rowID.hasPrefix("week.row."))
+        firstRow.buttons["옮기기"].tap()
+        let today = Date(), calendar = Calendar(identifier: .gregorian)
+        let lastWeek = try XCTUnwrap(calendar.date(byAdding: .day, value: -7, to: today))
+        pickDate(lastWeek, from: today, in: app); app.buttons["저장"].tap()
+        app.tabBars.buttons["오늘"].tap()
+        let secondRow = app.cells.containing(.staticText, identifier: second).firstMatch
+        reveal(secondRow, in: app); secondRow.buttons["시작"].tap()
+        app.buttons["오늘로 돌아가기"].tap()
+        app.tabBars.buttons["이번 주"].tap()
+        reveal(firstRow, in: app, upward: false); if !firstRow.buttons.firstMatch.isHittable { reveal(firstRow, in: app) }
+        firstRow.buttons["이어서 하기"].tap()
+        let dialog = app.sheets["하던 일을 일시정지하고 시작할까요?"]
+        XCTAssertTrue(dialog.waitForExistence(timeout: 5), app.debugDescription)
+        cancel(dialog, in: app)
+        XCTAssertTrue(app.navigationBars["이번 주"].exists)
+        XCTAssertEqual(firstRow.buttons["이어서 하기"].identifier, rowID)
+        app.tabBars.buttons["오늘"].tap()
+        let activeName = app.cells.containing(.button, identifier: "실행 상세").firstMatch.staticTexts[second]
+        reveal(activeName, in: app, upward: false); XCTAssertTrue(activeName.isHittable)
+        app.tabBars.buttons["이번 주"].tap()
+        firstRow.buttons["이어서 하기"].tap(); app.buttons["일시정지하고 시작"].tap()
+        XCTAssertTrue(app.navigationBars["실행 중"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts[first].exists)
+        let plannedLabel = "계획한 날짜 · \(calendar.component(.year, from: lastWeek))년 \(calendar.component(.month, from: lastWeek))월 \(calendar.component(.day, from: lastWeek))일"
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", plannedLabel)).firstMatch.exists)
+        app.buttons["일시정지"].tap(); app.buttons["이번 주로 돌아가기"].tap()
+        XCTAssertTrue(app.navigationBars["이번 주"].exists)
+        XCTAssertEqual(firstRow.buttons["이어서 하기"].identifier, rowID)
+        let capture = XCTAttachment(screenshot: app.screenshot()); capture.name = "Past-week-paused-return"; capture.lifetime = .keepAlways; add(capture)
+    }
+
+    @MainActor
+    func testTodayMoveDraftSurvivesSkipCancellationAndSkipReturnsToToday() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(ko)", "-AppleLocale", "ko_KR"]
+        app.launch()
+        let name = "SkipDraft \(UUID().uuidString.prefix(6))"
+        try createTodayPlans([name], in: app)
+        app.tabBars.buttons["오늘"].tap()
+        let row = app.cells.containing(.staticText, identifier: name).firstMatch
+        reveal(row, in: app); row.buttons["옮기기"].tap()
+        let today = Date(), calendar = Calendar(identifier: .gregorian)
+        let tomorrow = try XCTUnwrap(calendar.date(byAdding: .day, value: 1, to: today))
+        pickDate(tomorrow, from: today, in: app)
+        let timeToggle = app.switches["시각 정하기"]
+        timeToggle.switches.firstMatch.tap()
+        let expectedDate = "\(calendar.component(.year, from: tomorrow)). \(calendar.component(.month, from: tomorrow)). \(calendar.component(.day, from: tomorrow))."
+        reveal(app.buttons["이번 주 건너뛰기"], in: app); app.buttons["이번 주 건너뛰기"].tap()
+        let dialog = app.sheets["이번 주에서는 건너뛸까요?"]
+        XCTAssertTrue(dialog.waitForExistence(timeout: 5), app.debugDescription); cancel(dialog, in: app)
+        XCTAssertEqual(app.datePickers.firstMatch.buttons.firstMatch.value as? String, expectedDate)
+        XCTAssertEqual(timeToggle.value as? String, "1")
+        app.buttons["취소"].tap(); XCTAssertTrue(app.buttons["계속 편집"].waitForExistence(timeout: 5))
+        app.buttons["계속 편집"].tap()
+        XCTAssertEqual(app.datePickers.firstMatch.buttons.firstMatch.value as? String, expectedDate)
+        app.buttons["이번 주 건너뛰기"].tap(); dialog.buttons["건너뛰기"].tap()
+        XCTAssertTrue(app.navigationBars["일정 옮기기"].waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.tabBars.buttons["오늘"].isSelected)
+        XCTAssertFalse(row.exists)
+        reveal(app.buttons["이번 주 보기"], in: app); app.buttons["이번 주 보기"].tap()
+        reveal(row, in: app, upward: false); if !row.buttons.firstMatch.isHittable { reveal(row, in: app) }
+        XCTAssertTrue(row.buttons["다시 계획하기"].exists, app.debugDescription)
+        row.buttons["다시 계획하기"].tap()
+        let originalDate = "\(calendar.component(.year, from: today)). \(calendar.component(.month, from: today)). \(calendar.component(.day, from: today))."
+        XCTAssertEqual(app.datePickers.firstMatch.buttons.firstMatch.value as? String, originalDate)
+        XCTAssertEqual(timeToggle.value as? String, "0")
+        XCTAssertFalse(app.buttons["이번 주 건너뛰기"].exists)
+        app.buttons["취소"].tap()
+    }
+
+    @MainActor
+    func testTimeEditKeepsOriginalPerformedDateAfterWestwardTimeZoneChange() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(ko)", "-AppleLocale", "ko_KR"]
+        app.launchEnvironment["TZ"] = "Pacific/Kiritimati"
+        app.launch()
+        var east = Calendar(identifier: .gregorian), west = Calendar(identifier: .gregorian)
+        east.timeZone = try XCTUnwrap(TimeZone(identifier: "Pacific/Kiritimati"))
+        west.timeZone = try XCTUnwrap(TimeZone(identifier: "Pacific/Honolulu"))
+        let instant = Date()
+        let sourceDay = east.dateComponents([.year, .month, .day, .weekday], from: instant)
+        let localDay = west.dateComponents([.year, .month, .day, .weekday], from: instant)
+        func fullLabel(_ parts: DateComponents) -> String {
+            let weekdays = ["일", "월", "화", "수", "목", "금", "토"]
+            return "\(parts.year!)년 \(parts.month!)월 \(parts.day!)일 (\(weekdays[parts.weekday! - 1]))"
+        }
+        XCTAssertNotEqual(sourceDay.day, localDay.day)
+        XCTAssertTrue(app.staticTexts[fullLabel(sourceDay)].waitForExistence(timeout: 5), app.debugDescription)
+        let name = "Zone \(UUID().uuidString.prefix(6))"
+        try createTodayPlans([name], in: app)
+        app.tabBars.buttons["오늘"].tap()
+        let row = app.cells.containing(.staticText, identifier: name).firstMatch
+        reveal(row, in: app); row.buttons["이미 했어요"].tap()
+        app.terminate()
+        app.launchEnvironment["TZ"] = "Pacific/Honolulu"
+        app.launch()
+        XCTAssertTrue(app.staticTexts[fullLabel(localDay)].waitForExistence(timeout: 5), app.debugDescription)
+        app.tabBars.buttons["이번 주"].tap()
+        if sourceDay.weekday == 2 { app.buttons["다음 주"].tap() }
+        let mondayBasedWeekday = (sourceDay.weekday! + 5) % 7 + 1
+        app.buttons["week.day.\(mondayBasedWeekday)"].tap()
+        reveal(row, in: app); row.buttons["기록 편집"].tap()
+        let originalDate = "\(sourceDay.year!). \(sourceDay.month!). \(sourceDay.day!)."
+        XCTAssertEqual(app.datePickers.firstMatch.buttons.firstMatch.value as? String, originalDate)
+        let minutes = app.textFields["execution.minutes"]
+        minutes.tap(); minutes.typeText("0.5"); app.buttons["저장"].tap()
+        XCTAssertTrue(app.navigationBars["실행 기록"].waitForNonExistence(timeout: 5), app.debugDescription)
+        reveal(row, in: app); row.buttons["기록 편집"].tap()
+        XCTAssertEqual(app.datePickers.firstMatch.buttons.firstMatch.value as? String, originalDate)
+        XCTAssertEqual(minutes.value as? String, "0.5")
+        XCTAssertTrue(app.staticTexts["계획한 날짜 · \(fullLabel(sourceDay))"].exists)
+        let capture = XCTAttachment(screenshot: app.screenshot()); capture.name = "Original-performed-date-after-timezone-change"; capture.lifetime = .keepAlways; add(capture)
+        app.buttons["취소"].tap()
+    }
+
     @MainActor private func pickDate(_ date: Date, from source: Date, in app: XCUIApplication) {
         app.datePickers.firstMatch.tap()
         let calendar = Calendar(identifier: .gregorian)

@@ -19,7 +19,9 @@ struct PlanAdjustmentSheet: View {
     @State private var error: String?
     @State private var confirming = false
     @State private var committed = false
+    @State private var confirmingSkip = false
     @AccessibilityFocusState private var errorFocused: Bool
+    @AccessibilityFocusState private var skipFocused: Bool
 
     init(mode: Mode, today: LocalDate, onSaved: @escaping (LocalDate?) -> Void) {
         self.mode = mode; self.today = today; self.onSaved = onSaved
@@ -45,11 +47,21 @@ struct PlanAdjustmentSheet: View {
             Form {
                 if let error { Section { Text(error).accessibilityIdentifier("week.error").accessibilityFocused($errorFocused) } }
                 switch mode {
-                case .move(let source, _):
+                case .move(let source, let restore):
                     Section(source.name) {
                         Text("현재 \(source.day.fullLabel)").foregroundStyle(DesignTokens.textSecondary)
                         PlanDateFields(day: $day, time: $time)
                         if day.monday != source.day.monday { Text("\(day.monday.fullLabel)부터 시작하는 주로 옮겨요.") }
+                    }
+                    if !restore {
+                        Section {
+                            Button("이번 주 건너뛰기") { confirmingSkip = true }
+                                .disabled(committed).accessibilityFocused($skipFocused)
+                                .confirmationDialog("이번 주에서는 건너뛸까요?", isPresented: $confirmingSkip, titleVisibility: .visible) {
+                                    Button("건너뛰기", action: skip)
+                                    Button("취소", role: .cancel) { skipFocused = true }
+                                }
+                        }
                     }
                 case .rest(let sources):
                     Section {
@@ -82,6 +94,7 @@ struct PlanAdjustmentSheet: View {
                 ToolbarItem(placement: .confirmationAction) { Button(saveLabel, action: save).disabled(!canSave || committed) }
             }
             .modifier(PlanDismissal(dirty: dirty, onDiscard: { dismiss() }, confirming: $confirming))
+            .onChange(of: confirmingSkip) { if !confirmingSkip { skipFocused = true } }
         }
     }
     private var saveLabel: String { if case .rest = mode { return "쉬기로 하기" }; return "저장" }
@@ -104,6 +117,13 @@ struct PlanAdjustmentSheet: View {
                 onSaved(day)
             }
             recorder.refresh(); committed = true; dismiss()
+        } catch { self.error = error.localizedDescription; errorFocused = true }
+    }
+    private func skip() {
+        guard !committed, case .move(let source, false) = mode else { return }
+        do {
+            try PlanWriter.skip(source, in: context)
+            recorder.refresh(); committed = true; onSaved(nil); dismiss()
         } catch { self.error = error.localizedDescription; errorFocused = true }
     }
 }

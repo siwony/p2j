@@ -82,6 +82,22 @@ final class WeekPlanUITests: XCTestCase {
         app.buttons["저장"].tap()
         reveal(app.cells.containing(.staticText, identifier: name).firstMatch, in: app, upward: false)
         XCTAssertTrue(app.cells.containing(.staticText, identifier: name).firstMatch.buttons["옮기기"].exists)
+        let skippedList = app.buttons["쉬기로 한 일정 보기"]
+        reveal(skippedList, in: app)
+        XCTAssertTrue(skippedList.isHittable, app.debugDescription)
+        skippedList.tap() // Collapse restored history so the notice and disclosure share the visible section.
+        reveal(app.buttons["이번 주 남은 일정 쉬기"], in: app)
+        XCTAssertTrue(skippedList.isHittable, app.debugDescription)
+        XCTAssertFalse(app.staticTexts["이번 주 남은 일정은 쉬기로 했어요."].exists)
+        app.buttons["이번 주 남은 일정 쉬기"].tap(); app.buttons["쉬기로 하기"].tap()
+        XCTAssertTrue(app.staticTexts["이번 주 남은 일정은 쉬기로 했어요."].waitForExistence(timeout: 5))
+        reveal(app.buttons["week.plan"], in: app); app.buttons["week.plan"].tap()
+        choose(name, in: app); reveal(app.buttons["회차 배치"], in: app)
+        app.buttons["회차 배치"].tap(); app.buttons["계획에 담기"].tap()
+        reveal(skippedList, in: app)
+        XCTAssertTrue(skippedList.isHittable, app.debugDescription)
+        XCTAssertFalse(app.staticTexts["이번 주 남은 일정은 쉬기로 했어요."].exists)
+        let capture = XCTAttachment(screenshot: app.screenshot()); capture.name = "Partial-rest-after-new-plan"; capture.lifetime = .keepAlways; add(capture)
     }
 
     @MainActor

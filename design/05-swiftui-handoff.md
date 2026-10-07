@@ -30,7 +30,7 @@ Late completion: Week past-date/prior-week planned/paused → visible already-do
 
 Completion lifecycle: undo clears active completedAt/completionLocalDate/performedOn + removes aggregation; keep intervals/time. Recomplete captures new instant/local date; performedOn defaults to new date. Failed command preserves prior state. Date-only edits retain capture values.
 
-Completion date: `performedOn` owns Records day/week grouping; default `completionLocalDate`. Edit date only; keep `completedAt`, measured intervals, duration, planned date. Reject future date edits. Recompute both weeks; never move memo/calendar or create second completion.
+Completion date: `performedOn` owns Records day/week grouping; default `completionLocalDate`. Edit date only; keep `completedAt`, measured intervals, duration, planned date. Reject changed future dates; keep unchanged stored performed date during time edits even if time-zone travel makes it later than local today. Never clamp the stored civil date on sheet open. Recompute both weeks; never move memo/calendar or create second completion.
 
 Calendar intent belongs to WeekPlan; new/copied week defaults off. Connected week additions/changes/rest/restore schedule automatic export. Off suspends queued writes; keep existing events + links. Reconnect/move reuse links + compare external snapshots. Recheck current intent/state before each OS write; stale queued jobs must not resurrect skipped events.
 
@@ -38,7 +38,7 @@ Elapsed = start/end instants minus pause intervals. UI tick display only. Restor
 
 ## 네이티브 탐색과 입력
 
-5 tabs: TabView; detail: NavigationStack; editing: native sheet. Today→Running push; TabView stays. Back/tab switch never stops recording. Preserve each tab's navigation state.
+5 tabs: TabView; detail: NavigationStack; editing: native sheet. Today start→Running push in Today; Week paused resume→Running push in Week, without moving planned date. Push only after successful save; switch confirmation cancel/failure keeps caller tab/date. TabView stays. Return/complete preserves caller agenda. Back/tab switch never stops recording. Preserve each tab's navigation state.
 
 Dismiss restores caller tab/date/scroll/focus. Reschedule save success alone opens target Week date. Dirty draft cancel/swipe: ‘계속 편집 / 변경 버리기’. Clean draft: dismiss. Optional weekly memo exempt.
 
