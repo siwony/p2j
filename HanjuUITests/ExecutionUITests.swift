@@ -112,7 +112,10 @@ final class ExecutionUITests: XCTestCase {
     @MainActor
     func testPriorWeekDirectCompletionAndPerformedDateCorrectionKeepPlanInPlace() throws {
         continueAfterFailure = false
-        let app = XCUIApplication(); app.launch()
+        let app = XCUIApplication()
+        // Native compact date values follow the region, independently of the app's Korean strings.
+        app.launchArguments += ["-AppleLanguages", "(ko)", "-AppleLocale", "ko_KR"]
+        app.launch()
         let name = "Late \(UUID().uuidString.prefix(6))"
         try createTodayPlans([name], in: app)
         let row = app.cells.containing(.staticText, identifier: name).firstMatch
