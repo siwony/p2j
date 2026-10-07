@@ -15,7 +15,10 @@ final class ExecutionUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["실행 중"].waitForExistence(timeout: 5), app.debugDescription)
         XCTAssertTrue(app.staticTexts["execution.timer"].exists)
         app.buttons["오늘로 돌아가기"].tap()
-        XCTAssertTrue(app.otherElements["execution.active"].exists || app.staticTexts[first].exists)
+        let firstActive = app.cells.containing(.button, identifier: "실행 상세").firstMatch
+        reveal(firstActive.staticTexts[first], in: app, upward: false)
+        XCTAssertTrue(firstActive.staticTexts[first].isHittable, app.debugDescription)
+        XCTAssertTrue(firstActive.buttons["실행 상세"].exists, app.debugDescription)
         app.tabBars.buttons["이번 주"].tap(); app.tabBars.buttons["오늘"].tap()
         let secondRow = app.cells.containing(.staticText, identifier: second).firstMatch
         reveal(secondRow, in: app); secondRow.buttons["시작"].tap()
