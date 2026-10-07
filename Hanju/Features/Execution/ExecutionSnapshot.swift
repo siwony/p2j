@@ -8,6 +8,7 @@ struct ExecutionSnapshot: Identifiable, Equatable {
         let endedAt: Date?
         let endNanoseconds: Int64?
         let elapsed: Double?
+        let recoveryNeedsReview: Bool
     }
     let occurrence: OccurrenceSnapshot
     let revision: Int
@@ -25,7 +26,7 @@ struct ExecutionSnapshot: Identifiable, Equatable {
         var needsReview = false
         for interval in intervals where manualThroughSequence == nil || interval.sequence > (manualThroughSequence ?? 0) {
             hasTime = true
-            let elapsed = interval.endedAt == nil ? ExecutionClock.elapsed(start: interval.start, end: sample) : interval.elapsed
+            let elapsed = interval.recoveryNeedsReview ? nil : (interval.endedAt == nil ? ExecutionClock.elapsed(start: interval.start, end: sample) : interval.elapsed)
             if let elapsed, elapsed.isFinite, elapsed >= 0, (known + elapsed).isFinite { known += elapsed }
             else { needsReview = true }
         }

@@ -39,11 +39,11 @@ These contracts span #8–#12. #8 adds V2 WeekPlan/PlannedOccurrence and reuses 
 
 기능 검증·병합 근거는 #9 PR과 구현 순서에서 추적한다. 결정 근거는 [ADR 0002](../adr/0002-execution-time-and-recovery.md)다.
 
-V3는 기존 V1/V2 저장 모델을 재사용하며 occurrence별 고유 ExecutionRecord와 여러 ExecutionInterval을 추가한다. record는 완료 입력 instant·당시 LocalDate·수행일을 각각 저장하고, 선택적 수동 총초/적용 sequence와 revision을 갖는다. interval은 시작/종료 Date, 단조 시계 샘플, 프로세스 식별자, 순서, 확정 경과초를 보존한다. 프로세스 식별자는 부팅 식별자가 아니다.
+V3는 기존 V1/V2 저장 모델을 재사용하며 occurrence별 고유 ExecutionRecord와 여러 ExecutionInterval을 추가한다. record는 완료 입력 instant·당시 LocalDate·수행일을 각각 저장하고, 선택적 수동 총초/적용 sequence와 revision을 갖는다. interval은 시작/종료 Date, 단조 시계 샘플, 프로세스 식별자, 순서, 확정 경과초를 보존한다. 복구 확인 필요 표식은 열린 구간에도 영속화한다. 프로세스 식별자는 부팅 식별자가 아니다.
 
 ExecutionRecorder는 앱 수명의 MainActor 명령 소유자다. start/pause/complete/undo/edit는 await 없는 별도 context 명령으로 확정한다. snapshot의 revision과 회차 상태로 변경된 화면 명령을 거절한다. 조회와 UI tick은 저장하지 않는다. start 전 다른 running을 확인하고 사용자 선택 뒤 기존 pause+새 start를 원자 저장한다. 날짜/주와 관계없이 running은 최대 하나다. PlanWriter의 running 이동/쉬기/건너뛰기도 같은 context에서 구간을 닫고 한 번에 저장하며 실패하면 모두 유지한다.
 
-시간은 Date 차이 대신 수면을 포함한 단조 시계 차이로 계산한다. cold launch는 새 프로세스 시작 샘플을 기준으로 복구 판정을 고정한다. 샘플 감소/시계 불일치는 미확정 구간으로 보존하고 ‘시간 확인 필요’를 표시한다. 전체 시간이 불확실하면 전체 duration은 nil, 확인된 부분합은 별도이며 전체 시간으로 집계하지 않는다. 측정 이력 없는 nil(시간 미기록), 확정 0, 0초 초과 1분 미만을 구별한다. 불확실성을 해결하기 위해 시간 입력을 강요하지 않는다.
+시간은 Date 차이 대신 수면을 포함한 단조 시계 차이로 계산한다. cold launch는 새 프로세스 시작 샘플을 기준으로 복구 판정을 고정한다. 샘플 감소/시계 불일치는 미확정 구간과 영속 표식으로 보존하고 ‘시간 확인 필요’를 표시한다. 전체 시간이 불확실하면 전체 duration은 nil, 확인된 부분합은 별도이며 전체 시간으로 집계하지 않는다. 측정 이력 없는 nil(시간 미기록), 확정 0, 0초 초과 1분 미만을 구별한다. 불확실성을 해결하기 위해 시간 입력을 강요하지 않는다.
 
 수동 총시간은 manualThroughSequence까지의 원본 시간을 대체하며 이후 구간만 더한다. 구간/시각은 삭제하지 않는다. 입력 비우기는 측정 원본 또는 확인 필요로 복원한다. 수행일만 정정하면 exact seconds·수동값·적용 경계·입력 사실을 유지한다. 완료 취소/재완료도 구간·수동값은 보존한다. 종료/재부팅과 수동 시계 변경의 모든 조합을 판별할 수 있다는 보장은 없으며 실제 기기 확인은 #13에 남긴다.
 

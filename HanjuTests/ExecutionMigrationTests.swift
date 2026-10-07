@@ -57,4 +57,50 @@ final class ExecutionMigrationTests: XCTestCase {
         let routine = try XCTUnwrap(final.mainContext.fetch(FetchDescriptor<RoutineTemplate>()).first)
         XCTAssertTrue(routine.isArchived); XCTAssertEqual(routine.note, "원문\n보존")
     }
+    func testDetectedColdUncertaintySurvivesDiskReopenAndFailedFlagSavePreservesRunning() throws {
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appending(path: "recovery.store")
+        let day = try XCTUnwrap(LocalDate(year: 2026, month: 10, day: 5))
+        let id = UUID(), process = UUID()
+        try autoreleasepool {
+            let c = try PersistenceStore.makeContainer(storeURL: url)
+            let routine = RoutineTemplate(name: "원문"); c.mainContext.insert(routine); try c.mainContext.save()
+            let entry = PlanDraft.Entry(id: id, routineID: routine.id, name: "원문", expectedMinutes: nil, firstAction: nil, day: day)
+            try PlanWriter.confirm(PlanDraft(week: day, entries: [entry]), in: c.mainContext)
+            let source = try ExecutionWriter.snapshot(id, in: ModelContext(c))
+            try ExecutionWriter.start(source, at: .init(wall: day.pickerDate, nanoseconds: 100_000_000_000, processID: process), in: c.mainContext)
+        }
+        try autoreleasepool {
+            let c = try PersistenceStore.makeContainer(storeURL: url)
+            let original = try ExecutionWriter.snapshot(id, in: ModelContext(c))
+            let cold = ExecutionClock.Sample(wall: day.pickerDate.addingTimeInterval(7200), nanoseconds: 110_000_000_000, processID: UUID())
+            enum Failure: Error { case disk }
+            XCTAssertThrowsError(try ExecutionWriter.preserveRecoveryReview(at: cold, in: c.mainContext, save: { _ in throw Failure.disk }))
+            XCTAssertEqual(try ExecutionWriter.snapshot(id, in: ModelContext(c)), original)
+            try ExecutionWriter.preserveRecoveryReview(at: cold, in: c.mainContext)
+            let detected = try ExecutionWriter.snapshot(id, in: ModelContext(c))
+            XCTAssertTrue(try XCTUnwrap(detected.intervals.first).recoveryNeedsReview)
+            XCTAssertEqual(detected.occurrence.status, .running)
+            XCTAssertNil(detected.intervals.first?.endedAt)
+            XCTAssertEqual(detected.intervals.first?.start, original.intervals.first?.start)
+        }
+        let c = try PersistenceStore.makeContainer(storeURL: url)
+        let normal = ExecutionClock.Sample(wall: day.pickerDate.addingTimeInterval(20), nanoseconds: 120_000_000_000, processID: UUID())
+        let recorder = ExecutionRecorder(container: c, clock: { normal })
+        let active = try XCTUnwrap(recorder.active)
+        XCTAssertTrue(active.duration(at: normal).needsReview)
+        XCTAssertNil(active.duration(at: normal).seconds)
+        try recorder.complete(active)
+        let closed = try recorder.read(id)
+        XCTAssertNil(closed.intervals.first?.elapsed)
+        XCTAssertTrue(try XCTUnwrap(closed.intervals.first).recoveryNeedsReview)
+        var correction = CompletionDraft(closed); correction.minutes = "2"
+        try recorder.edit(closed, draft: correction)
+        let corrected = try recorder.read(id)
+        XCTAssertEqual(corrected.duration(at: normal).seconds, 120)
+        XCTAssertEqual(corrected.intervals, closed.intervals)
+    }
+
 }

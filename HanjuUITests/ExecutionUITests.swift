@@ -162,11 +162,16 @@ final class ExecutionUITests: XCTestCase {
         reveal(app.buttons["이번 주 보기"], in: app); app.buttons["이번 주 보기"].tap()
         reveal(app.buttons["week.plan"], in: app); app.buttons["week.plan"].tap()
         for name in names {
-            let toggle = app.switches[name]; reveal(toggle, in: app)
-            toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+            let toggle = app.switches[name]
+            let control = toggle.switches.firstMatch
+            reveal(control, in: app); control.tap()
+            XCTAssertEqual(toggle.value as? String, "1", app.debugDescription)
         }
-        reveal(app.buttons["회차 배치"], in: app); app.buttons["회차 배치"].tap(); app.buttons["계획에 담기"].tap()
-        XCTAssertTrue(app.navigationBars["이번 주"].waitForExistence(timeout: 5))
+        reveal(app.buttons["회차 배치"], in: app); app.buttons["회차 배치"].tap()
+        XCTAssertTrue(app.buttons["계획에 담기"].isEnabled, app.debugDescription)
+        app.buttons["계획에 담기"].tap()
+        XCTAssertTrue(app.navigationBars["주간 계획"].waitForNonExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(app.navigationBars["이번 주"].exists)
     }
     @MainActor private func cancel(_ dialog: XCUIElement, in app: XCUIApplication) {
         if dialog.buttons["취소"].exists { dialog.buttons["취소"].tap() }

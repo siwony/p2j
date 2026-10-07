@@ -16,7 +16,7 @@ enum ExecutionWriter {
             manualThroughSequence: record?.manualThroughSequence, intervals: intervals.map {
                 ExecutionSnapshot.Interval(id: $0.id, sequence: $0.sequence,
                     start: ExecutionClock.Sample(wall: $0.startedAt, nanoseconds: $0.startNanoseconds, processID: $0.processID),
-                    endedAt: $0.endedAt, endNanoseconds: $0.endNanoseconds, elapsed: $0.elapsedSeconds)
+                    endedAt: $0.endedAt, endNanoseconds: $0.endNanoseconds, elapsed: $0.elapsedSeconds, recoveryNeedsReview: $0.recoveryNeedsReview)
             })
     }
     static func active(in context: ModelContext) throws -> ExecutionSnapshot? {
@@ -29,6 +29,20 @@ enum ExecutionWriter {
         let records = try context.fetch(FetchDescriptor<ExecutionRecord>(predicate: #Predicate { $0.performedDayKey == key }))
         return try records.map { try snapshot($0.occurrenceID, in: context) }
             .filter { $0.occurrence.status == .completed }.sorted { ($0.completedAt ?? .distantPast) < ($1.completedAt ?? .distantPast) }
+    }
+    /// Called explicitly on service open/refresh, never from a display tick.
+    static func preserveRecoveryReview(at sample: ExecutionClock.Sample, in context: ModelContext,
+                                       save: ((ModelContext) throws -> Void)? = nil) throws {
+        let transaction = transaction(context)
+        guard let active = try active(in: transaction) else { return }
+        let open = try intervals(active.id, in: transaction).filter { $0.endedAt == nil }
+        guard open.count == 1, let interval = open.first else { throw ExecutionError.invalidData }
+        guard !interval.recoveryNeedsReview else { return }
+        let start = ExecutionClock.Sample(wall: interval.startedAt, nanoseconds: interval.startNanoseconds, processID: interval.processID)
+        if ExecutionClock.elapsed(start: start, end: sample) == nil {
+            interval.recoveryNeedsReview = true
+            try commit(transaction, save: save)
+        }
     }
     static func start(_ source: ExecutionSnapshot, replacing current: ExecutionSnapshot? = nil,
                       at sample: ExecutionClock.Sample, in context: ModelContext, save: ((ModelContext) throws -> Void)? = nil) throws {
@@ -113,7 +127,8 @@ enum ExecutionWriter {
         let open = try intervals(occurrence.id, in: context).filter { $0.endedAt == nil }
         guard open.count == 1, let interval = open.first else { throw ExecutionError.invalidData }
         interval.endedAt = sample.wall; interval.endNanoseconds = sample.nanoseconds
-        interval.elapsedSeconds = ExecutionClock.elapsed(start: .init(wall: interval.startedAt, nanoseconds: interval.startNanoseconds, processID: interval.processID), end: sample)
+        interval.elapsedSeconds = interval.recoveryNeedsReview ? nil : ExecutionClock.elapsed(start: .init(wall: interval.startedAt, nanoseconds: interval.startNanoseconds, processID: interval.processID), end: sample)
+        if interval.elapsedSeconds == nil { interval.recoveryNeedsReview = true }
         let record = try requiredRecord(occurrence.id, in: context)
         record.revision += 1
     }

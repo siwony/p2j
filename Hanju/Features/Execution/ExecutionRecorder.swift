@@ -19,7 +19,12 @@ final class ExecutionRecorder {
     func read(_ id: UUID) throws -> ExecutionSnapshot { try ExecutionWriter.snapshot(id, in: ModelContext(container)) }
     func completed(on day: LocalDate) throws -> [ExecutionSnapshot] { try ExecutionWriter.completed(on: day, in: ModelContext(container)) }
     func refresh() {
-        do { active = try ExecutionWriter.active(in: ModelContext(container)); failure = nil; revision += 1 }
+        do {
+            active = try ExecutionWriter.active(in: ModelContext(container))
+            try ExecutionWriter.preserveRecoveryReview(at: clock(), in: ModelContext(container))
+            active = try ExecutionWriter.active(in: ModelContext(container))
+            failure = nil; revision += 1
+        }
         catch { failure = error.localizedDescription }
     }
     func start(_ source: ExecutionSnapshot, replacing current: ExecutionSnapshot? = nil) throws {

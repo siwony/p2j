@@ -31,6 +31,7 @@ enum HanjuSchemaV3: VersionedSchema {
         var endNanoseconds: Int64?
         var processID: UUID
         var elapsedSeconds: Double?
+        var recoveryNeedsReview: Bool = false
         init(occurrenceID: UUID, sequence: Int, sample: ExecutionClock.Sample) {
             id = UUID(); self.occurrenceID = occurrenceID; self.sequence = sequence
             startedAt = sample.wall; startNanoseconds = sample.nanoseconds; processID = sample.processID

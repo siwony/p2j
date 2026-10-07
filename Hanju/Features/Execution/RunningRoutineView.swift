@@ -38,7 +38,7 @@ struct RunningRoutineView: View {
                     Text("계획한 날짜 · \(source.occurrence.day.fullLabel)").font(.subheadline)
                     if let minutes = source.occurrence.expectedMinutes { Text("예상 \(minutes)분").font(.subheadline) }
                 } else { Text("시작할 일을 골라보세요.") }
-                if let error { Text(error); Button("다시 불러오기", action: load) }
+                if let error = error ?? recorder.failure { Text(error); Button("다시 불러오기") { recorder.refresh(); load() } }
                 Button("오늘로 돌아가기") { dismiss() }
             }.frame(maxWidth: .infinity, alignment: .leading).padding(DesignTokens.screenInset)
         }
