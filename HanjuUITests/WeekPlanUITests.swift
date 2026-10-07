@@ -57,11 +57,14 @@ final class WeekPlanUITests: XCTestCase {
         let app = XCUIApplication()
         app.launch()
         let name = "Rest \(UUID().uuidString.prefix(6))"
+        let skippedName = "Remain \(UUID().uuidString.prefix(6))"
         createRoutine(name, in: app)
+        createRoutine(skippedName, in: app)
         app.tabBars.buttons["이번 주"].tap()
         reveal(app.buttons["week.plan"], in: app)
         app.buttons["week.plan"].tap()
         choose(name, in: app)
+        choose(skippedName, in: app)
         reveal(app.buttons["회차 배치"], in: app)
         app.buttons["회차 배치"].tap()
         app.buttons["계획에 담기"].tap()
@@ -82,6 +85,10 @@ final class WeekPlanUITests: XCTestCase {
         app.buttons["저장"].tap()
         reveal(app.cells.containing(.staticText, identifier: name).firstMatch, in: app, upward: false)
         XCTAssertTrue(app.cells.containing(.staticText, identifier: name).firstMatch.buttons["옮기기"].exists)
+        let skippedRow = app.cells.containing(.staticText, identifier: skippedName).firstMatch
+        reveal(skippedRow, in: app, upward: false)
+        if !skippedRow.buttons.firstMatch.isHittable { reveal(skippedRow, in: app) }
+        XCTAssertTrue(skippedRow.buttons["다시 계획하기"].exists, app.debugDescription)
         let skippedList = app.buttons["쉬기로 한 일정 보기"]
         reveal(skippedList, in: app)
         XCTAssertTrue(skippedList.isHittable, app.debugDescription)
