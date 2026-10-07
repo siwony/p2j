@@ -131,8 +131,8 @@ final class ExecutionUITests: XCTestCase {
         XCTAssertTrue(row.buttons["기록 편집"].exists, app.debugDescription)
         XCTAssertTrue(row.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "시간 미기록")).firstMatch.exists)
         row.buttons["기록 편집"].tap()
-        let dateValue = app.datePickers.firstMatch.value as? String ?? ""
-        XCTAssertTrue(dateValue.contains("\(calendar.component(.day, from: lastWeek))"), app.debugDescription)
+        let dateValue = app.datePickers.firstMatch.buttons.firstMatch.value as? String ?? ""
+        XCTAssertEqual(dateValue, "\(calendar.component(.year, from: lastWeek)). \(calendar.component(.month, from: lastWeek)). \(calendar.component(.day, from: lastWeek)).", app.debugDescription)
         app.buttons["취소"].tap()
         app.tabBars.buttons["오늘"].tap()
         XCTAssertFalse(app.cells.containing(.staticText, identifier: name).firstMatch.exists)
