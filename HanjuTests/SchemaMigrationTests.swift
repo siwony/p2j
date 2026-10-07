@@ -5,7 +5,7 @@ import XCTest
 
 @MainActor
 final class SchemaMigrationTests: XCTestCase {
-    func testRealV1DiskStoreMigratesToV2AndReopensWithAllRoutineValues() throws {
+    func testRealV1DiskStoreMigratesToV3AndReopensWithAllRoutineValues() throws {
         let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -25,9 +25,9 @@ final class SchemaMigrationTests: XCTestCase {
             let emptyV1 = try ModelContainer(for: schema, configurations: [config])
             try emptyV1.mainContext.save()
         }
-        let emptyV2 = try PersistenceStore.makeContainer(storeURL: emptyURL)
-        XCTAssertEqual(try emptyV2.mainContext.fetchCount(FetchDescriptor<RoutineTemplate>()), 0)
-        XCTAssertEqual(try emptyV2.mainContext.fetchCount(FetchDescriptor<WeekPlan>()), 0)
+        let emptyV3 = try PersistenceStore.makeContainer(storeURL: emptyURL)
+        XCTAssertEqual(try emptyV3.mainContext.fetchCount(FetchDescriptor<RoutineTemplate>()), 0)
+        XCTAssertEqual(try emptyV3.mainContext.fetchCount(FetchDescriptor<WeekPlan>()), 0)
         let rows = try reopened.mainContext.fetch(FetchDescriptor<PlannedOccurrence>())
         XCTAssertEqual(rows.count, 1)
         let active = try XCTUnwrap(reopened.mainContext.fetch(FetchDescriptor<RoutineTemplate>()).first { !$0.isArchived })

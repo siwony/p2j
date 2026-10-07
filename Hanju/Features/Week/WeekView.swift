@@ -14,10 +14,13 @@ struct WeekView: View {
     let returnToToday: () -> Void
     let openLibrary: () -> Void
     @Environment(\.modelContext) private var context
+    @Environment(ExecutionRecorder.self) private var recorder
     @Environment(\.scenePhase) private var scenePhase
     @State private var today = LocalDate(.now)
     @State private var rows: [OccurrenceSnapshot] = []
+    @State private var completedRecords: [UUID: ExecutionSnapshot] = [:]
     @State private var error: String?
+    @State private var completedNotice: UUID?
     @State private var editor: Editor?
     @State private var callerDay: LocalDate?
     @State private var fromToday = false
@@ -30,7 +33,7 @@ struct WeekView: View {
     @State private var callerFocus: Focus = .plan
     private enum Focus: Hashable { case plan, rest, day, row(UUID) }
     private struct Editor: Identifiable {
-        enum Kind { case plan, adjustment(PlanAdjustmentSheet.Mode) }
+        enum Kind { case plan, adjustment(PlanAdjustmentSheet.Mode), completion(ExecutionSnapshot) }
         let id = UUID()
         let kind: Kind
     }
@@ -86,16 +89,21 @@ struct WeekView: View {
                         if let explanation = row.time?.resolve(on: row.day, in: .current)?.explanation { Text(explanation).font(.footnote) }
                         if row.status == .skipped {
                             Button("다시 계획하기") { show(.adjustment(.move(row, restore: true)), focus: .row(row.id)) }
-                        } else if row.canReplan {
+                        } else if row.isUnfinished {
                             ViewThatFits(in: .horizontal) {
                                 HStack { rowActions(row) }
                                 VStack(alignment: .leading) { rowActions(row) }
                             }
+                        } else if row.status == .completed {
+                            Button("기록 편집") { editCompletion(row.id) }
                         }
                     }
                     .accessibilityIdentifier("week.row.\(row.id)")
                     .accessibilityFocused($focused, equals: .row(row.id))
                 }
+            }
+            if let id = completedNotice {
+                Section { Text("완료했어요."); Button("기록 편집") { editCompletion(id) } }
             }
             if rows.contains(where: { $0.status == .skipped }) {
                 Section {
@@ -132,6 +140,8 @@ struct WeekView: View {
             switch item.kind {
             case .plan:
                 WeeklySelectionSheet(week: week, earliest: max(week, week == today.monday ? today : week), existing: rows, onSaved: saved)
+            case .completion(let source):
+                CompletionSheet(source: source)
             case .adjustment(let mode):
                 PlanAdjustmentSheet(mode: mode, today: today, onSaved: saved)
             }
@@ -142,20 +152,36 @@ struct WeekView: View {
         }
         .onAppear { refreshClock(); consumeRequest() }
         .onChange(of: selectedDay) { load() }
+        .onChange(of: recorder.revision) { load() }
         .onChange(of: request) { consumeRequest() }
         .onChange(of: scenePhase) { if scenePhase == .active { refreshClock() } }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in refreshClock() }
         .onReceive(NotificationCenter.default.publisher(for: .NSSystemTimeZoneDidChange)) { _ in refreshClock() }
     }
     @ViewBuilder private func rowActions(_ row: OccurrenceSnapshot) -> some View {
+        if row.canReplan {
+            Button("이미 했어요") {
+                do { try recorder.complete(recorder.read(row.id)); completedNotice = row.id; load() }
+                catch { self.error = error.localizedDescription }
+            }.buttonStyle(.borderless)
+        }
         Button("옮기기") { show(.adjustment(.move(row, restore: false)), focus: .row(row.id)) }
             .buttonStyle(.borderless)
         Button("건너뛰기") { skipTarget = row; showSkip = true }
             .buttonStyle(.borderless)
     }
+    private func editCompletion(_ id: UUID) {
+        do {
+            let source = try recorder.read(id)
+            guard source.occurrence.status == .completed else { completedNotice = nil; throw ExecutionError.changed }
+            show(.completion(source), focus: .row(id))
+        }
+        catch { self.error = error.localizedDescription }
+    }
     private func rowDescription(_ row: OccurrenceSnapshot) -> String {
         let status = row.status == .planned && row.day.monday < today.monday ? "기록 없음" : row.statusLabel
-        return [row.time?.label, row.expectedMinutes.map { "예상 \($0)분" }, status].compactMap { $0 }.joined(separator: " · ")
+        let duration = row.status == .completed ? completedRecords[row.id]?.duration(at: recorder.now()).label : row.expectedMinutes.map { "예상 \($0)분" }
+        return [row.time?.label, duration, status].compactMap { $0 }.joined(separator: " · ")
     }
     private func show(_ kind: Editor.Kind, focus: Focus) {
         succeeded = false; savedDay = nil; fromToday = false; callerDay = nil
@@ -174,7 +200,7 @@ struct WeekView: View {
     }
     private func confirmSkip() {
         guard let skipTarget else { return }
-        do { try PlanWriter.skip(skipTarget, in: context); load(); focused = .row(skipTarget.id) }
+        do { try PlanWriter.skip(skipTarget, in: context); recorder.refresh(); load(); focused = .row(skipTarget.id) }
         catch { self.error = error.localizedDescription }
     }
     private func didDismiss() {
@@ -187,7 +213,13 @@ struct WeekView: View {
     }
     private func refreshClock() { today = LocalDate(.now); load() }
     private func load() {
-        do { rows = try PlanWriter.fetch(week: week, in: context); error = nil }
+        do {
+            let loaded = try PlanWriter.fetch(week: week, in: context)
+            let records = try loaded.filter { $0.status == .completed }.map { try recorder.read($0.id) }
+            rows = loaded; completedRecords = Dictionary(uniqueKeysWithValues: records.map { ($0.id, $0) })
+            if let completedNotice, !rows.contains(where: { $0.id == completedNotice && $0.status == .completed }) { self.completedNotice = nil }
+            error = nil
+        }
         catch { self.error = error.localizedDescription }
     }
 }

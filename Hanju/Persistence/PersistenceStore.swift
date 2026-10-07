@@ -6,12 +6,15 @@ import SwiftData
 @Observable
 final class PersistenceStore {
     private(set) var container: ModelContainer?
+    private(set) var recorder: ExecutionRecorder?
     private(set) var failureMessage: String?
 
     func open() {
         guard container == nil else { return }
         do {
-            container = try Self.makeContainer()
+            let opened = try Self.makeContainer()
+            container = opened
+            recorder = ExecutionRecorder(container: opened)
             failureMessage = nil
         } catch {
             failureMessage = "저장된 데이터를 열지 못했어요. 데이터를 지우지 않고 다시 시도할 수 있어요."
@@ -22,7 +25,7 @@ final class PersistenceStore {
         inMemory: Bool = false,
         storeURL: URL? = nil
     ) throws -> ModelContainer {
-        let schema = Schema(versionedSchema: HanjuSchemaV2.self)
+        let schema = Schema(versionedSchema: HanjuSchemaV3.self)
         let configuration: ModelConfiguration
         if let storeURL {
             configuration = ModelConfiguration(

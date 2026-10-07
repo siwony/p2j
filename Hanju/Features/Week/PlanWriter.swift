@@ -35,7 +35,7 @@ enum PlanWriter {
     }
 
     static func move(_ source: OccurrenceSnapshot, to day: LocalDate, time: LocalTime?, restore: Bool = false,
-                     in context: ModelContext, save: ((ModelContext) throws -> Void)? = nil) throws {
+                     in context: ModelContext, at sample: ExecutionClock.Sample = ExecutionClock.now(), save: ((ModelContext) throws -> Void)? = nil) throws {
         let transaction = transaction(in: context)
         let model = try find(source.id, in: transaction)
         if model.plannedDayKey == day.key, model.localTimeMinutes == time?.minutes,
@@ -44,30 +44,33 @@ enum PlanWriter {
             if model.statusRaw != "running", model.statusRaw != "completed" { return }
         }
         try check(source, model: model)
-        guard model.statusRaw != "running" else { throw PlanError.runningNeedsRecorder }
-        guard restore ? model.statusRaw == "skipped" : source.canReplan else { throw PlanError.changedOccurrence }
+        guard restore ? model.statusRaw == "skipped" : source.isUnfinished else { throw PlanError.changedOccurrence }
+        if model.statusRaw == "running" {
+            try ExecutionWriter.closeRunning(model, at: sample, in: transaction)
+            model.statusRaw = "paused"
+        }
         let week = try weekPlan(for: day.monday, in: transaction)
         model.weekID = week.id; model.plannedDayKey = day.key; model.localTimeMinutes = time?.minutes
         if restore {
-            model.statusRaw = model.statusBeforeSkip == "paused" ? "paused" : "planned"
+            model.statusRaw = try ExecutionWriter.hasIntervals(model.id, in: transaction) ? "paused" : "planned"
             model.statusBeforeSkip = nil
         }
         model.updatedAt = .now
         try commit(transaction, save: save)
     }
 
-    static func skip(_ source: OccurrenceSnapshot, in context: ModelContext, save: ((ModelContext) throws -> Void)? = nil) throws {
+    static func skip(_ source: OccurrenceSnapshot, in context: ModelContext, at sample: ExecutionClock.Sample = ExecutionClock.now(), save: ((ModelContext) throws -> Void)? = nil) throws {
         let transaction = transaction(in: context)
         let model = try find(source.id, in: transaction)
         if model.statusRaw == "skipped" { return }
         try check(source, model: model)
-        try markSkipped(model)
+        try markSkipped(model, at: sample, in: transaction)
         try commit(transaction, save: save)
     }
 
     /// The confirmation owns this exact ID set; later additions are not swept into it.
     static func rest(_ sources: [OccurrenceSnapshot], today: LocalDate, in context: ModelContext,
-                     save: ((ModelContext) throws -> Void)? = nil) throws {
+                     at sample: ExecutionClock.Sample = ExecutionClock.now(), save: ((ModelContext) throws -> Void)? = nil) throws {
         guard !sources.isEmpty else { return } // Empty-week rest never persists a plan.
         guard Set(sources.map(\.id)).count == sources.count,
               sources.allSatisfy({ $0.day.monday == today.monday && $0.isUnfinished }) else { throw PlanError.invalidDraft }
@@ -76,7 +79,7 @@ enum PlanWriter {
             let model = try find(source.id, in: transaction)
             if model.statusRaw == "skipped" { continue }
             try check(source, model: model)
-            try markSkipped(model)
+            try markSkipped(model, at: sample, in: transaction)
         }
         try commit(transaction, save: save)
     }
@@ -119,8 +122,11 @@ enum PlanWriter {
         guard model.updatedAt == source.updatedAt, model.plannedDayKey == source.day.key,
               model.statusRaw == source.status.rawValue else { throw PlanError.changedOccurrence }
     }
-    private static func markSkipped(_ model: PlannedOccurrence) throws {
-        guard model.statusRaw != "running" else { throw PlanError.runningNeedsRecorder }
+    private static func markSkipped(_ model: PlannedOccurrence, at sample: ExecutionClock.Sample, in context: ModelContext) throws {
+        if model.statusRaw == "running" {
+            try ExecutionWriter.closeRunning(model, at: sample, in: context)
+            model.statusRaw = "paused"
+        }
         guard ["planned", "paused"].contains(model.statusRaw) else { throw PlanError.changedOccurrence }
         model.statusBeforeSkip = model.statusRaw
         model.statusRaw = "skipped"

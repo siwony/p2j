@@ -12,6 +12,7 @@ struct PlanAdjustmentSheet: View {
     let onSaved: (LocalDate?) -> Void
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
+    @Environment(ExecutionRecorder.self) private var recorder
     @State private var day: LocalDate
     @State private var time: LocalTime?
     @State private var selected: Set<UUID> = []
@@ -102,7 +103,7 @@ struct PlanAdjustmentSheet: View {
                 try PlanWriter.replan(sources.filter { selected.contains($0.id) }, to: day, today: currentDay, in: context)
                 onSaved(day)
             }
-            committed = true; dismiss()
+            recorder.refresh(); committed = true; dismiss()
         } catch { self.error = error.localizedDescription; errorFocused = true }
     }
 }

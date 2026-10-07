@@ -32,7 +32,7 @@ struct AppTabs: View {
                 .tag(Tab.library)
 
             NavigationStack {
-                emptyScreen(title: "기록", message: "아직 남긴 기록이 없어요.") {
+                emptyScreen(title: "기록", message: "완료한 일은 오늘과 이번 주에서 확인할 수 있어요.") {
                     EmptyView()
                 }
             }
@@ -42,7 +42,7 @@ struct AppTabs: View {
             NavigationStack {
                 Form {
                     Section("데이터 저장") {
-                        Text("루틴은 이 iPhone에 저장돼요.")
+                        Text("계획과 실행 기록은 이 iPhone에 저장돼요.")
                         Text("앱을 삭제하면 저장된 데이터도 지워져요.")
                             .foregroundStyle(DesignTokens.textSecondary)
                     }

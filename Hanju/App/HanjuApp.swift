@@ -8,9 +8,10 @@ struct HanjuApp: App {
     var body: some Scene {
         WindowGroup {
             Group {
-                if let container = persistence.container {
+                if let container = persistence.container, let recorder = persistence.recorder {
                     AppTabs()
                         .modelContainer(container)
+                        .environment(recorder)
                 } else if let message = persistence.failureMessage {
                     ContentUnavailableView {
                         Label("데이터를 열지 못했어요", systemImage: "externaldrive.badge.exclamationmark")
@@ -20,7 +21,7 @@ struct HanjuApp: App {
                         Button("다시 시도", systemImage: "arrow.clockwise") {
                             persistence.open()
                         }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.borderedProminent).foregroundStyle(DesignTokens.onAccent)
                     }
                 } else {
                     ProgressView("데이터 여는 중")
