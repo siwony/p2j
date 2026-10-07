@@ -37,7 +37,7 @@ These contracts span #8–#12. #8 adds V2 WeekPlan/PlannedOccurrence and reuses 
 
 ## #9 실행 저장 계약
 
-구현 중; 검증·병합 상태는 #9 PR과 구현 순서를 따른다. 결정 근거는 [ADR 0002](../adr/0002-execution-time-and-recovery.md)다.
+기능 검증·병합 근거는 #9 PR과 구현 순서에서 추적한다. 결정 근거는 [ADR 0002](../adr/0002-execution-time-and-recovery.md)다.
 
 V3는 기존 V1/V2 저장 모델을 재사용하며 occurrence별 고유 ExecutionRecord와 여러 ExecutionInterval을 추가한다. record는 완료 입력 instant·당시 LocalDate·수행일을 각각 저장하고, 선택적 수동 총초/적용 sequence와 revision을 갖는다. interval은 시작/종료 Date, 단조 시계 샘플, 프로세스 식별자, 순서, 확정 경과초를 보존한다. 프로세스 식별자는 부팅 식별자가 아니다.
 
