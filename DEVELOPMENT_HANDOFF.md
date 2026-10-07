@@ -2,7 +2,7 @@
 
 ## 상태와 읽는 순서
 
-Stage: foundation merged (#4); routine editing, optional fields, archive/restore, and draft dismissal implemented in #7. Week planning, LocalDate, occurrence snapshots, move/skip/restore, bulk rest and Today recovery are implemented in #8. Full MVP acceptance pending. Product spec 1.3 adopted in #18; execution/OS/records integration pending in #9–#13.
+Stage: foundation merged (#4); routine editing, optional fields, archive/restore, and draft dismissal implemented in #7. Week planning, LocalDate, occurrence snapshots, move/skip/restore, bulk rest and Today recovery are implemented in #8. Execution/timer/direct completion, record edits/date correction and atomic running rest are implemented in #9. Feature verification/review evidence is tracked in that issue/PR. Full MVP acceptance pending. Product spec 1.3 adopted in #18; weekly Records/OS integration and full acceptance pending in #10–#13.
 
 Before assigned work: `docs/development/planning-revision-1.3.md` → delta/AC/owner/scenarios. Reject stale 1.2 policies: empty-week-only rest, completion-entry-date aggregation, manual export of newly added items, time-first Records.
 
@@ -32,10 +32,10 @@ Human planning/design docs: natural prose. This file + implementation contract: 
 
 ## 착수와 범위
 
-Resolve kickoff items in plan. Foundation → components → screens/storage → notifications/calendar → accessibility/real use. Current work: development rules + AI review workflow merged. Foundation implementation/verification: #4; library: #7; planning: #8; sequential features: `docs/development/implementation-plan.md`. Personal iPhone 15 Pro target; signing/device validation pending.
+Resolve kickoff items in plan. Foundation → components → screens/storage → notifications/calendar → accessibility/real use. Sequential work: #9 execution after #8, then #10 weekly Records; independent Codex review + latest-head Copilot completion required before merge. Foundation implementation/verification: #4; library: #7; planning: #8; sequential features: `docs/development/implementation-plan.md`. Personal iPhone 15 Pro target; signing/device validation pending.
 
 MVP excludes Mac, CloudKit, server, account, payment. Native SwiftUI; no HTML WebView wrapper. Tests map to plan acceptance criteria.
 
 `docs/.archive/`: historical reviews + compression originals; exclude default reads. Read `design/reference/user-design-brief.txt` only for source conflicts.
 
-Technical decision: `docs/adr/0001-native-ios-foundation.md`. Data contracts: `docs/development/data-contracts.md`. Local build: `docs/development/local-development.md`.
+Technical decisions: `docs/adr/0001-native-ios-foundation.md`, `docs/adr/0002-execution-time-and-recovery.md`. Data contracts: `docs/development/data-contracts.md`. Local build: `docs/development/local-development.md`.

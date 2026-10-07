@@ -46,6 +46,6 @@ typealias WeekPlan = HanjuSchemaV2.WeekPlan
 typealias PlannedOccurrence = HanjuSchemaV2.PlannedOccurrence
 
 enum HanjuMigrationPlan: SchemaMigrationPlan {
-    static var schemas: [any VersionedSchema.Type] { [HanjuSchemaV1.self, HanjuSchemaV2.self] }
-    static var stages: [MigrationStage] { [.lightweight(fromVersion: HanjuSchemaV1.self, toVersion: HanjuSchemaV2.self)] }
+    static var schemas: [any VersionedSchema.Type] { [HanjuSchemaV1.self, HanjuSchemaV2.self, HanjuSchemaV3.self] }
+    static var stages: [MigrationStage] { [.lightweight(fromVersion: HanjuSchemaV1.self, toVersion: HanjuSchemaV2.self), .lightweight(fromVersion: HanjuSchemaV2.self, toVersion: HanjuSchemaV3.self)] }
 }

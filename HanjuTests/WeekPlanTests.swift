@@ -172,7 +172,10 @@ final class WeekPlanTests: XCTestCase {
         let c = try container()
         let entries = (0..<5).map { _ in entry() }
         try PlanWriter.confirm(PlanDraft(week: monday, entries: entries), in: c.mainContext)
-        try changeStatus(entries[1].id, to: "paused", container: c)
+        let planned = try ExecutionWriter.snapshot(entries[1].id, in: ModelContext(c))
+        try ExecutionWriter.start(planned, at: ExecutionClock.now(), in: c.mainContext)
+        let started = try ExecutionWriter.snapshot(entries[1].id, in: ModelContext(c))
+        try ExecutionWriter.pause(started, at: ExecutionClock.now(), in: c.mainContext)
         try changeStatus(entries[2].id, to: "completed", container: c)
         let before = try fetch(c.mainContext)
         let selected = before.filter { $0.isUnfinished }
