@@ -2,6 +2,7 @@ import SwiftUI
 
 struct RunningRoutineView: View {
     let occurrenceID: UUID
+    var returnLabel = "오늘로 돌아가기"
     @Environment(ExecutionRecorder.self) private var recorder
     @Environment(\.dismiss) private var dismiss
     @State private var source: ExecutionSnapshot?
@@ -39,7 +40,7 @@ struct RunningRoutineView: View {
                     if let minutes = source.occurrence.expectedMinutes { Text("예상 \(minutes)분").font(.subheadline) }
                 } else { Text("시작할 일을 골라보세요.") }
                 if let error = error ?? recorder.failure { Text(error); Button("다시 불러오기") { recorder.refresh(); load() } }
-                Button("오늘로 돌아가기") { dismiss() }
+                Button(returnLabel) { dismiss() }
             }.frame(maxWidth: .infinity, alignment: .leading).padding(DesignTokens.screenInset)
         }
         .background(DesignTokens.background).navigationTitle("실행 중").navigationBarTitleDisplayMode(.inline)

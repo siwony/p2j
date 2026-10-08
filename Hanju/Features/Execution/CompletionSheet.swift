@@ -13,6 +13,7 @@ struct CompletionSheet: View {
     @AccessibilityFocusState private var errorFocused: Bool
     init(source: ExecutionSnapshot) { self.source = source; _draft = State(initialValue: CompletionDraft(source)) }
     private var dirty: Bool { draft != CompletionDraft(source) }
+    private var latestAllowedDay: LocalDate { max(LocalDate(recorder.now().wall), source.performedOn ?? LocalDate(recorder.now().wall)) }
     var body: some View {
         NavigationStack {
             Form {
@@ -22,7 +23,7 @@ struct CompletionSheet: View {
                     Text("계획한 날짜 · \(source.occurrence.day.fullLabel)").font(.subheadline)
                 }
                 Section("실제로 한 날짜") {
-                    DatePicker("수행일", selection: dateBinding, in: ...LocalDate(.now).pickerDate, displayedComponents: .date)
+                    DatePicker("수행일", selection: dateBinding, in: ...latestAllowedDay.pickerDate, displayedComponents: .date)
                         .environment(\.calendar, LocalDate.calendar(in: .gmt)).environment(\.timeZone, .gmt)
                     Text("완료를 입력한 날짜와 측정 구간은 그대로 남아요.").font(.footnote)
                 }

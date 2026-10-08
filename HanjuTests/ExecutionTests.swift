@@ -92,6 +92,64 @@ final class ExecutionTests: XCTestCase {
         XCTAssertEqual(kept.intervals, short.intervals)
     }
 
+    func testTimeOnlyEditPreservesPerformedDateAfterWestwardTimeZoneChange() throws {
+        let (c, ids) = try fixture(1), id = ids[0]
+        let seoul = try XCTUnwrap(TimeZone(identifier: "Asia/Seoul"))
+        let honolulu = try XCTUnwrap(TimeZone(identifier: "Pacific/Honolulu"))
+        let instant = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-10-06T15:30:00Z"))
+        let start = ExecutionClock.Sample(wall: instant, nanoseconds: 1_000_000_000, processID: process)
+        let end = ExecutionClock.Sample(wall: instant.addingTimeInterval(12.25), nanoseconds: 13_250_000_000, processID: process)
+        try ExecutionWriter.start(read(id, c), at: start, in: c.mainContext)
+        try ExecutionWriter.complete(read(id, c), at: end, timeZone: seoul, in: c.mainContext)
+        let source = try read(id, c), localToday = LocalDate(end.wall, timeZone: honolulu)
+        XCTAssertEqual(source.performedOn?.key, 20261007)
+        XCTAssertEqual(localToday.key, 20261006)
+        var draft = CompletionDraft(source); draft.minutes = "0.5"
+        XCTAssertThrowsError(try ExecutionWriter.edit(source, draft: draft, today: localToday, in: c.mainContext, save: { _ in throw Failure.disk }))
+        XCTAssertEqual(try read(id, c), source); XCTAssertEqual(draft.minutes, "0.5")
+        try ExecutionWriter.edit(source, draft: draft, today: localToday, in: c.mainContext)
+        let edited = try read(id, c)
+        XCTAssertEqual(edited.performedOn, source.performedOn)
+        XCTAssertEqual(edited.completedAt, source.completedAt); XCTAssertEqual(edited.completionDay, source.completionDay)
+        XCTAssertEqual(edited.occurrence, source.occurrence); XCTAssertEqual(edited.intervals, source.intervals)
+        XCTAssertEqual(edited.duration(at: end).seconds, 30)
+        XCTAssertThrowsError(try ExecutionWriter.edit(source, draft: draft, today: localToday, in: c.mainContext))
+        var future = CompletionDraft(edited); future.performedOn = localToday.adding(days: 2)
+        XCTAssertThrowsError(try ExecutionWriter.edit(edited, draft: future, today: localToday, in: c.mainContext))
+        XCTAssertEqual(try read(id, c), edited)
+        future.performedOn = localToday.adding(days: -1)
+        try ExecutionWriter.edit(edited, draft: future, today: localToday, in: c.mainContext)
+        let past = try read(id, c)
+        var returnToOld = CompletionDraft(past); returnToOld.performedOn = try XCTUnwrap(source.performedOn)
+        XCTAssertThrowsError(try ExecutionWriter.edit(past, draft: returnToOld, today: localToday, in: c.mainContext))
+        XCTAssertEqual(try read(id, c), past)
+    }
+
+    func testPastWeekResumeAndFailedSkipKeepIdentityDateAndMeasuredIntervals() throws {
+        let (c, ids) = try fixture(), id = ids[0]
+        try ExecutionWriter.start(read(id, c), at: sample(0), in: c.mainContext)
+        try ExecutionWriter.pause(read(id, c), at: sample(10), in: c.mainContext)
+        try PlanWriter.move(read(id, c).occurrence, to: day.adding(days: -7), time: nil, in: c.mainContext)
+        let prior = try read(id, c)
+        try ExecutionWriter.start(read(ids[1], c), at: sample(20), in: c.mainContext)
+        let other = try read(ids[1], c)
+        XCTAssertThrowsError(try ExecutionWriter.start(prior, replacing: other, at: sample(30), in: c.mainContext, save: { _ in throw Failure.disk }))
+        XCTAssertEqual(try read(id, c), prior); XCTAssertEqual(try read(ids[1], c), other)
+        try ExecutionWriter.start(prior, replacing: other, at: sample(30), in: c.mainContext)
+        let resumed = try read(id, c)
+        XCTAssertEqual(resumed.id, prior.id); XCTAssertEqual(resumed.occurrence.day, prior.occurrence.day)
+        XCTAssertEqual(resumed.intervals.first, prior.intervals.first)
+        XCTAssertEqual(try read(ids[1], c).occurrence.status, .paused)
+        XCTAssertThrowsError(try PlanWriter.skip(resumed.occurrence, in: c.mainContext, at: sample(35), save: { _ in throw Failure.disk }))
+        XCTAssertEqual(try read(id, c), resumed)
+        try PlanWriter.skip(resumed.occurrence, in: c.mainContext, at: sample(35))
+        let skipped = try read(id, c)
+        try PlanWriter.skip(resumed.occurrence, in: c.mainContext, at: sample(40))
+        XCTAssertEqual(try read(id, c), skipped)
+        XCTAssertEqual(skipped.duration(at: sample(50)).seconds, 15)
+        XCTAssertEqual(skipped.occurrence.day, prior.occurrence.day)
+    }
+
     func testManualOverrideThenUndoResumeAddsOnlyNewIntervalsAndBlankRestoresMeasurement() throws {
         let (c, ids) = try fixture(1); let id = ids[0]
         try ExecutionWriter.start(read(id, c), at: sample(0), in: c.mainContext)

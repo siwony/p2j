@@ -41,11 +41,13 @@
 
 **다시 고르기:** 놓친 현재 주의 후보에서 원하는 회차와 오늘~일요일의 새 날짜를 고른다. 확정은 기존 ID의 날짜만 변경하고 이력을 보존한다. 이전 주의 일은 ‘지난 계획 가져오기’를 사용자가 선택할 때만 새 후보로 다룬다. 재계획 확정 성공 후 선택한 날짜 agenda로 이동하며 취소/실패는 원래 화면·입력을 보존한다.
 
-**남은 일정 쉬기:** 현재 주에 미완료가 있을 때 보조 action 제공 → 대상 이름과 실행 중 여부 확인 → ‘남은 일정 쉬기 / 취소’. 확정한 집합만 skipped로 저장한다. 실행 중 대상은 기록을 보존하고 멈추며, 저장 실패는 전부 원상태다. 이후 ‘이번 주 남은 일정은 쉬기로 했어요’와 건너뜀 목록 접근을 제공한다. 목록의 ‘다시 계획하기’에서 날짜 선택 후 같은 회차로 복원한다. 다음 주 계획 알림은 설정대로이며 새로 추가한 회차는 정상 계획이다. 연동 실패는 앱 저장과 구분한다.
+**남은 일정 쉬기:** 현재 주에 미완료가 있을 때 보조 action 제공 → 대상 이름과 실행 중 여부 확인 → ‘남은 일정 쉬기 / 취소’. 확정한 집합만 skipped로 저장한다. 실행 중 대상은 기록을 보존하고 멈추며, 저장 실패는 전부 원상태다. 이후 ‘이번 주 남은 일정은 쉬기로 했어요’와 건너뜀 목록 접근을 제공한다. 같은 주에 일정을 추가하거나 일부 복원해 할 일이 다시 생기면 전체 쉬기 안내를 해제한다. 남아 있는 건너뜀 목록은 유지한다. 목록의 ‘다시 계획하기’에서 날짜 선택 후 같은 회차로 복원한다. 다음 주 계획 알림은 설정대로이며 새로 추가한 회차는 정상 계획이다. 연동 실패는 앱 저장과 구분한다.
 
 **주중 횟수 조정:** 기존 주에 더하기는 새 회차를 명시적으로 추가한다. 확정 연타·재시도는 중복을 만들지 않는다. 횟수를 줄이려면 해당 회차를 건너뛰며 완료 기록은 유지한다.
 
 **뒤늦은 완료:** 이전 날짜·지난주 agenda의 planned/paused 행에도 보이는 ‘이미 했어요’를 제공한다. 같은 ID·계획 날짜로 즉시 완료하며 기존 측정 구간을 보존한다. 완료행 또는 toast의 기록 편집 → CompletionSheet에서 수행일을 선택적으로 정정한다. 자동 재계획·새 회차 생성 없음. skipped는 먼저 ‘다시 계획하기’로 복원한다.
+
+**이전 작업 이어가기:** 날짜나 주가 지난 paused 행에 ‘이어서 하기’를 제공한다. 계획 날짜·ID·기존 구간을 바꾸지 않고 재개하며, 저장 성공 뒤 현재 Week의 NavigationStack에 실행 화면을 연다. 다른 running이 있으면 기존 작업을 일시정지하고 시작할지 확인한다. 취소·실패는 현재 실행과 선택 날짜·탭을 유지한다. Today의 예정 목록에 지난 항목을 자동으로 이월하지 않는다.
 
 **이동:** 행의 ‘옮기기’ → Reschedule → 저장 후 새 날짜 agenda 선택, toast ‘목요일로 옮겼어요’. 다른 주로 옮길 때 대상 주 날짜를 명시하며 그 주에 항목을 한 번만 이동한다. Drag는 필수 범위 아님.
 
@@ -87,15 +89,15 @@
 
 ## 8. Running Routine / 실행 중
 
-**목적:** 첫 행동과 실행 제어에 집중한다. **위계:** 뒤로 → 분류/루틴명 → 시작행동 → 기록시간 → pause/resume + 완료 → 계획일/예상시간. **레이아웃:** 큰 시간(44pt)은 이 화면에만. 원형 chart 없음. **Primary:** 완료. **Secondary:** 일시정지/이어서 하기, 오늘로 돌아가기.
+**목적:** 첫 행동과 실행 제어에 집중한다. **위계:** 뒤로 → 분류/루틴명 → 시작행동 → 기록시간 → pause/resume + 완료 → 계획일/예상시간. **레이아웃:** 큰 시간(44pt)은 이 화면에만. 원형 chart 없음. **Primary:** 완료. **Secondary:** 일시정지/이어서 하기, 호출한 탭으로 돌아가기(Today: ‘오늘로 돌아가기’, Week: ‘이번 주로 돌아가기’).
 
-**Components:** RoutineStatus, PrimaryButton, SecondaryButton. **빈 상태:** 실행중 없음→‘시작할 일을 골라보세요’ + 오늘 보기. **오류:** 기록저장 실패 시 제어 결과를 확정하지 않고 시간을 보존, 다시 저장. **Interaction:** Today의 NavigationStack에 push하며 하단 TabView를 유지한다. 현재 탭은 Today다. back과 다른 탭 이동은 실행을 중단하지 않는다. 완료→기록 저장→Today/Records. 시간수정은 CompletionSheet. 예상시간이 지나도 경고·자동완료 없음. 접근성은 초 단위 announce 금지.
+**Components:** RoutineStatus, PrimaryButton, SecondaryButton. **빈 상태:** 실행중 없음→‘시작할 일을 골라보세요’ + 호출한 화면으로 돌아가기. **오류:** 기록저장 실패 시 제어 결과를 확정하지 않고 시간을 보존, 다시 저장. **Interaction:** Today에서 시작하면 Today의 NavigationStack, Week에서 paused를 재개하면 Week의 NavigationStack에 저장 성공 뒤 push하며 하단 TabView와 호출 탭을 유지한다. back과 다른 탭 이동은 실행을 중단하지 않는다. 완료→기록 저장→호출한 agenda로 돌아간다. Week의 선택 날짜·주를 유지한다. 시간수정은 CompletionSheet. 예상시간이 지나도 경고·자동완료 없음. 접근성은 초 단위 announce 금지.
 
 ## 보조 presentation과 route
 
-- CompletionSheet: 이름 → ‘완료했어요’ → 실제로 한 날짜 → 시간 미기록 또는 실제기록 → 선택적 분 직접입력 → 저장. 오늘 이후 수행일은 거절하되 시각/이유 입력은 요구하지 않는다. 날짜 정정은 완료 입력시각·실행 구간·계획/캘린더를 바꾸지 않는다. 취소는 편집 초안만 폐기, 실패는 초안 유지. ‘완료 취소’는 별도 action. 닫아도 이미 했어요 결과는 유지.
+- CompletionSheet: 이름 → ‘완료했어요’ → 실제로 한 날짜 → 시간 미기록 또는 실제기록 → 선택적 분 직접입력 → 저장. 새 수행일로 정정할 때 오늘 이후 날짜는 거절하되 시각/이유 입력은 요구하지 않는다. 시간대 변경으로 저장된 수행일이 현지 오늘보다 뒤여도 기존 수행일을 표시·보존하며, 날짜를 그대로 둔 시간 수정은 허용한다. 날짜 정정은 완료 입력시각·실행 구간·계획/캘린더를 바꾸지 않는다. 취소는 편집 초안만 폐기, 실패는 초안 유지. ‘완료 취소’는 별도 action. 닫아도 이미 했어요 결과는 유지.
 - CalendarSheet: 대상주·쓰기 가능 캘린더 → ‘이 주 캘린더 연결’과 이후 추가/변경 자동 반영 안내 → 권한→저장. 끄기 전 기존 일정은 남고 대기/자동 반영은 중지됨을 설명한다. 다시 켜면 연결 정보와 외부 변경을 확인한다. 시간은 있지만 예상 길이가 없으면 해당 항목만 대기, 추후 입력 시 반영한다. 미허용/대기/일부실패/외부변경/반영됨 분리. 외부 수정·삭제는 사용자 선택 전 덮어쓰지 않는다. 주 이동은 두 주 연결 상태에 따라 제품 기획서의 규칙을 따른다. 수행일·메모·실제시간은 내보내지 않는다.
-- Navigation: Tab(Today, Week, Library, Records, Settings). Today→Running push. Library→RoutineEditor sheet. Today/Week→Reschedule sheet. Completed row→Completion sheet. Week/Settings→Calendar sheet. Week→WeeklySelection sheet. sheet dismiss는 호출자 context와 focus 복원.
+- Navigation: Tab(Today, Week, Library, Records, Settings). Today start/Week paused resume→Running push in caller stack. Library→RoutineEditor sheet. Today/Week→Reschedule sheet. Completed row→Completion sheet. Week/Settings→Calendar sheet. Week→WeeklySelection sheet. sheet dismiss는 호출자 context와 focus 복원.
 - 하나의 sheet enum을 root coordinator 또는 탭에 둔다. sheet 위에 sheet를 겹치지 않는다. editor에서 필요 picker는 같은 sheet의 native control. 변경된 draft의 취소/swipe는 ‘계속 편집 / 변경 버리기’로 처리한다. 저장성공 후 dismiss, 실패면 열린 채 유지.
 
 ## 프리뷰 계약

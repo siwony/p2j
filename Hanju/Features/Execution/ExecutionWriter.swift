@@ -109,11 +109,11 @@ enum ExecutionWriter {
     }
     static func edit(_ source: ExecutionSnapshot, draft: CompletionDraft, today: LocalDate, in context: ModelContext,
                      save: ((ModelContext) throws -> Void)? = nil) throws {
-        guard draft.performedOn <= today else { throw ExecutionError.futureDate }
         let transaction = transaction(context), model = try find(source.id, in: transaction)
         try check(source, model: model, in: transaction)
         guard source.occurrence.status == .completed else { throw ExecutionError.changed }
         let record = try requiredRecord(source.id, in: transaction)
+        guard draft.performedOn.key == record.performedDayKey || draft.performedOn <= today else { throw ExecutionError.futureDate }
         if draft.minutesEdited {
             record.manualSeconds = try draft.manualSeconds()
             record.manualThroughSequence = record.manualSeconds == nil ? nil : (source.intervals.last?.sequence ?? 0)
