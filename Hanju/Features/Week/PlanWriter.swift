@@ -50,6 +50,7 @@ enum PlanWriter {
             model.statusRaw = "paused"
         }
         let week = try weekPlan(for: day.monday, in: transaction)
+        try preserveDateMove(model, to: day, in: transaction)
         model.weekID = week.id; model.plannedDayKey = day.key; model.localTimeMinutes = time?.minutes
         if restore {
             model.statusRaw = try ExecutionWriter.hasIntervals(model.id, in: transaction) ? "paused" : "planned"
@@ -94,10 +95,19 @@ enum PlanWriter {
             let model = try find(source.id, in: transaction)
             if model.plannedDayKey == day.key, model.statusRaw == source.status.rawValue { continue }
             try check(source, model: model)
+            try preserveDateMove(model, to: day, in: transaction)
             model.plannedDayKey = day.key
             model.updatedAt = .now
         }
         try commit(transaction, save: save)
+    }
+
+    private static func preserveDateMove(_ model: PlannedOccurrence, to day: LocalDate, in context: ModelContext) throws {
+        guard model.plannedDayKey != day.key else { return }
+        let id = model.id
+        let request = FetchDescriptor<OccurrenceDateMove>(predicate: #Predicate { $0.occurrenceID == id })
+        guard try context.fetch(request).isEmpty else { return }
+        context.insert(OccurrenceDateMove(occurrenceID: id, fromDayKey: model.plannedDayKey, toDayKey: day.key))
     }
 
     private static func transaction(in context: ModelContext) -> ModelContext {

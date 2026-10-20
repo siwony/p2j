@@ -25,7 +25,7 @@ final class PersistenceStore {
         inMemory: Bool = false,
         storeURL: URL? = nil
     ) throws -> ModelContainer {
-        let schema = Schema(versionedSchema: HanjuSchemaV3.self)
+        let schema = Schema(versionedSchema: HanjuSchemaV4.self)
         let configuration: ModelConfiguration
         if let storeURL {
             configuration = ModelConfiguration(
