@@ -8,6 +8,7 @@ struct RecordsView: View {
     @Environment(ExecutionRecorder.self) private var recorder
     @Environment(WeeklyMemoCoordinator.self) private var memos
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var week = LocalDate(.now).monday
     @State private var today = LocalDate(.now)
     @State private var snapshot: WeeklyRecordsSnapshot?
@@ -30,12 +31,18 @@ struct RecordsView: View {
             Section {
                 Text("\(week.fullLabel) – \(week.adding(days: 6).label)").font(.headline)
                     .accessibilityIdentifier("records.range").accessibilityFocused($focused, equals: .week)
-                HStack {
+                let navigationLayout = dynamicTypeSize.isAccessibilitySize
+                    ? AnyLayout(VStackLayout(alignment: .leading, spacing: DesignTokens.spacing))
+                    : AnyLayout(HStackLayout())
+                navigationLayout {
                     Button("지난주", systemImage: "chevron.left") { changeWeek(week.adding(days: -7)) }
-                    Spacer()
+                        .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : nil, alignment: .leading)
+                    if !dynamicTypeSize.isAccessibilitySize { Spacer() }
                     Button("이번 주") { changeWeek(today.monday) }
-                    Spacer()
+                        .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : nil, alignment: .leading)
+                    if !dynamicTypeSize.isAccessibilitySize { Spacer() }
                     Button("다음 주", systemImage: "chevron.right") { changeWeek(week.adding(days: 7)) }
+                        .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : nil, alignment: .leading)
                 }
                 .buttonStyle(.borderless)
             }
@@ -47,7 +54,7 @@ struct RecordsView: View {
                 ForEach(week.weekDays) { day in
                     let rows = current.completed.filter { $0.performedOn == day }
                     if !rows.isEmpty {
-                        Section(day.fullLabel) {
+                        Section {
                             ForEach(rows) { record in
                                 Button { edit(record.id) } label: {
                                     VStack(alignment: .leading, spacing: 8) {
@@ -62,19 +69,19 @@ struct RecordsView: View {
                                 .buttonStyle(.plain).accessibilityIdentifier("records.row.\(record.id)")
                                 .accessibilityHint("실행 기록 편집").accessibilityFocused($focused, equals: .row(record.id))
                             }
-                        }
+                        } header: { recordsHeader(day.fullLabel) }
                     }
                 }
                 if !current.routineCounts.isEmpty {
-                    Section("루틴별 실천 횟수") {
+                    Section {
                         ForEach(current.routineCounts) { count in
                             LabeledContent(count.name, value: "\(count.count)회")
                                 .accessibilityIdentifier("records.count.\(count.id)")
                         }
-                    }
+                    } header: { recordsHeader("루틴별 실천 횟수") }
                 }
                 if current.timeSummary.totalSeconds != nil || current.timeSummary.sumOverflow {
-                    Section("기록한 시간") {
+                    Section {
                         if current.timeSummary.sumOverflow {
                             Text("시간 합계가 표시 범위를 넘었어요.")
                         } else if let seconds = current.timeSummary.totalSeconds {
@@ -86,15 +93,15 @@ struct RecordsView: View {
                         if current.timeSummary.needsReviewCount > 0 {
                             Text("시간 확인 필요 \(current.timeSummary.needsReviewCount)건은 합계에 포함하지 않았어요.").font(.subheadline)
                         }
-                    }
+                    } header: { recordsHeader("기록한 시간") }
                 }
             }
-            Section("주간 메모") {
+            Section {
                 Text("이번 주에 기억해두고 싶은 게 있나요?").foregroundStyle(DesignTokens.textSecondary)
                 TextEditor(text: memoBinding).frame(minHeight: memoHeight).focused($memoFocused)
                     .disabled(!memo.isLoaded).accessibilityLabel("주간 메모").accessibilityIdentifier("records.memo")
                 memoStatus
-            }
+            } header: { recordsHeader("주간 메모") }
             Section {
                 Button("지난 계획 보기") { leaveForPlan { openWeek(week) } }
                 Button { leaveForPlan { planNextWeek(nextWeek) } } label: {
@@ -120,6 +127,15 @@ struct RecordsView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in refreshClock() }
         .onReceive(NotificationCenter.default.publisher(for: .NSSystemTimeZoneDidChange)) { _ in refreshClock() }
+    }
+
+    private func recordsHeader(_ title: String) -> some View {
+        Text(title).font(.headline)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, DesignTokens.spacing)
+            .padding(.vertical, DesignTokens.spacing / 2)
+            .background(DesignTokens.background)
+            .listRowInsets(EdgeInsets())
     }
 
     @ViewBuilder private var memoStatus: some View {
