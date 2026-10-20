@@ -135,7 +135,7 @@ struct RecordsView: View {
         Text(title).font(.headline)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, DesignTokens.spacing)
-            .padding(.vertical, DesignTokens.spacing / 2)
+            .padding(.bottom, DesignTokens.spacing / 2)
             .background(DesignTokens.background)
             .listRowInsets(EdgeInsets())
     }
