@@ -38,7 +38,7 @@ struct TodayView: View {
         List {
             Section { Text(today.fullLabel).font(.headline) }
             if let route = notifications.route, !route.ticket.isPlanning {
-                Section("알림에서 선택한 일") {
+                Section {
                     ForEach(notificationTargets) { source in
                         VStack(alignment: .leading, spacing: 8) {
                             Text(source.occurrence.name).font(.headline)
@@ -52,7 +52,15 @@ struct TodayView: View {
                     }
                     if notificationTargets.isEmpty { Text("현재 시작할 수 있는 일이 없어요. 계획이 변경됐을 수 있어요.") }
                     Button("닫기") { notifications.dismissRoute() }
-                }.accessibilityIdentifier("notifications.targets")
+                } header: {
+                    Text("알림에서 선택한 일").font(.headline)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, DesignTokens.spacing)
+                        .padding(.bottom, DesignTokens.spacing / 2)
+                        .background(DesignTokens.background)
+                        .listRowInsets(EdgeInsets())
+                }
+                .accessibilityIdentifier("notifications.targets")
             }
             if let message = notifications.message { Section { Text(message) } }
             if let error = error ?? recorder.failure { Section { Text(error); Button("다시 시도") { recorder.refresh(); load() } } }
