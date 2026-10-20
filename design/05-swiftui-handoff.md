@@ -40,7 +40,7 @@ Elapsed = start/end instants minus pause intervals. UI tick display only. Restor
 
 5 tabs: TabView; detail: NavigationStack; editing: native sheet. Today start→Running push in Today; Week paused resume→Running push in Week, without moving planned date. Push only after successful save; switch confirmation cancel/failure keeps caller tab/date. TabView stays. Return/complete preserves caller agenda. Back/tab switch never stops recording. Preserve each tab's navigation state.
 
-Dismiss restores caller tab/date/scroll/focus. Reschedule save success alone opens target Week date. Dirty draft cancel/swipe: ‘계속 편집 / 변경 버리기’. Clean draft: dismiss. Optional weekly memo exempt.
+Dismiss restores caller tab/date/scroll/focus. Reschedule save success alone opens target Week date. Explicit date-open requests show the Week root agenda, including a repeat request for its already selected date; dismiss only the Week running detail, never stop or restart its timer. Ordinary tab switches preserve each tab's detail. Dirty draft cancel/swipe: ‘계속 편집 / 변경 버리기’. Clean draft: dismiss. Optional weekly memo exempt.
 
 Use semantic Button/Toggle/Picker/DatePicker. Swipe/drag supplementary; primary actions always visible. Label icons. No nested sheets.
 

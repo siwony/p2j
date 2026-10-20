@@ -12,7 +12,7 @@ struct AppTabs: View {
     var body: some View {
         TabView(selection: $selection) {
             NavigationStack {
-                TodayView(openWeek: { day in weekDay = day; selection = .week },
+                TodayView(openWeek: { day in weekRequest = WeekRequest(kind: .agenda, day: day); selection = .week },
                     plan: { day in weekRequest = WeekRequest(kind: .plan, day: day); selection = .week },
                     recover: { day in weekRequest = WeekRequest(kind: .recovery, day: day); selection = .week },
                     openLibrary: { selection = .library })
