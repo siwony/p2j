@@ -14,7 +14,8 @@ final class ExecutionUITests: XCTestCase {
         let secondRow = app.cells.containing(.staticText, identifier: second).firstMatch
         reveal(firstRow, in: app); firstRow.buttons["시작"].tap()
         if app.buttons["일시정지하고 시작"].exists { app.buttons["일시정지하고 시작"].tap() }
-        app.buttons["일시정지"].tap(); app.buttons["오늘로 돌아가기"].tap()
+        XCTAssertTrue(app.navigationBars["실행 중"].waitForExistence(timeout: 5))
+        app.scrollViews.buttons["일시정지"].tap(); app.scrollViews.buttons["오늘로 돌아가기"].tap()
         app.tabBars.buttons["이번 주"].tap()
         reveal(firstRow, in: app, upward: false)
         let firstID = firstRow.buttons["이어서 하기"].identifier
@@ -90,7 +91,8 @@ final class ExecutionUITests: XCTestCase {
         app.tabBars.buttons["오늘"].tap()
         reveal(firstRow, in: app); firstRow.buttons["시작"].tap()
         if app.buttons["일시정지하고 시작"].exists { app.buttons["일시정지하고 시작"].tap() }
-        app.buttons["일시정지"].tap(); app.buttons["오늘로 돌아가기"].tap()
+        XCTAssertTrue(app.navigationBars["실행 중"].waitForExistence(timeout: 5))
+        app.scrollViews.buttons["일시정지"].tap(); app.scrollViews.buttons["오늘로 돌아가기"].tap()
         reveal(app.buttons["이번 주 보기"], in: app); app.buttons["이번 주 보기"].tap()
         reveal(firstRow, in: app, upward: false)
         let firstID = firstRow.buttons["이어서 하기"].identifier
