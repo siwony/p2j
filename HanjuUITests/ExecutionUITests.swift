@@ -2,6 +2,140 @@ import XCTest
 
 final class ExecutionUITests: XCTestCase {
     @MainActor
+    func testExplicitWeekAgendaOpensMovedDateAndSameDayWithoutStoppingRunning() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(ko)", "-AppleLocale", "ko_KR"]
+        app.launch()
+        let first = "AgendaA \(UUID().uuidString.prefix(6))", second = "AgendaB \(UUID().uuidString.prefix(6))"
+        try createTodayPlans([first, second], in: app)
+        app.tabBars.buttons["오늘"].tap()
+        let firstRow = app.cells.containing(.staticText, identifier: first).firstMatch
+        let secondRow = app.cells.containing(.staticText, identifier: second).firstMatch
+        reveal(firstRow, in: app); firstRow.buttons["시작"].tap()
+        if app.buttons["일시정지하고 시작"].exists { app.buttons["일시정지하고 시작"].tap() }
+        app.buttons["일시정지"].tap(); app.buttons["오늘로 돌아가기"].tap()
+        app.tabBars.buttons["이번 주"].tap()
+        reveal(firstRow, in: app, upward: false)
+        let firstID = firstRow.buttons["이어서 하기"].identifier
+        XCTAssertTrue(firstID.hasPrefix("week.row."))
+        firstRow.buttons["이어서 하기"].tap()
+        XCTAssertTrue(app.navigationBars["실행 중"].waitForExistence(timeout: 5))
+        app.tabBars.buttons["오늘"].tap(); app.tabBars.buttons["이번 주"].tap()
+        XCTAssertTrue(app.navigationBars["실행 중"].exists)
+        XCTAssertTrue(app.staticTexts[first].exists)
+        app.tabBars.buttons["오늘"].tap()
+        reveal(secondRow, in: app); secondRow.buttons["옮기기"].tap(); app.buttons["취소"].tap()
+        XCTAssertTrue(app.tabBars.buttons["오늘"].isSelected)
+        app.tabBars.buttons["이번 주"].tap()
+        XCTAssertTrue(app.navigationBars["실행 중"].exists)
+        app.tabBars.buttons["오늘"].tap()
+        reveal(secondRow, in: app); secondRow.buttons["옮기기"].tap()
+        let today = Date(), calendar = Calendar(identifier: .gregorian)
+        let tomorrow = try XCTUnwrap(calendar.date(byAdding: .day, value: 1, to: today))
+        pickDate(tomorrow, from: today, in: app); app.buttons["저장"].tap()
+        XCTAssertTrue(app.navigationBars["이번 주"].waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertFalse(app.navigationBars["실행 중"].exists)
+        reveal(secondRow, in: app)
+        XCTAssertTrue(secondRow.buttons["옮기기"].isHittable)
+        secondRow.buttons["옮기기"].tap()
+        XCTAssertEqual(app.datePickers.firstMatch.buttons.firstMatch.value as? String,
+            "\(calendar.component(.year, from: tomorrow)). \(calendar.component(.month, from: tomorrow)). \(calendar.component(.day, from: tomorrow)).")
+        app.buttons["취소"].tap()
+        let capture = XCTAttachment(screenshot: app.screenshot()); capture.name = "Moved-date-agenda"; capture.lifetime = .keepAlways; add(capture)
+        app.tabBars.buttons["오늘"].tap()
+        let active = app.cells.containing(.button, identifier: "실행 상세").firstMatch
+        reveal(active.staticTexts[first], in: app, upward: false)
+        XCTAssertTrue(active.staticTexts[first].isHittable)
+        XCTAssertTrue(active.buttons["일시정지"].exists)
+        active.buttons["일시정지"].tap()
+        reveal(app.buttons["이번 주 보기"], in: app); app.buttons["이번 주 보기"].tap()
+        reveal(firstRow, in: app, upward: false)
+        XCTAssertEqual(firstRow.buttons["이어서 하기"].identifier, firstID)
+        firstRow.buttons["이어서 하기"].tap()
+        XCTAssertTrue(app.navigationBars["실행 중"].waitForExistence(timeout: 5))
+        app.tabBars.buttons["오늘"].tap()
+        reveal(app.buttons["이번 주 보기"], in: app); app.buttons["이번 주 보기"].tap()
+        XCTAssertTrue(app.navigationBars["이번 주"].waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertFalse(app.navigationBars["실행 중"].exists)
+        reveal(firstRow, in: app, upward: false)
+        XCTAssertEqual(firstRow.buttons["옮기기"].identifier, firstID)
+        XCTAssertTrue(firstRow.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "실행 중")).firstMatch.exists)
+        app.tabBars.buttons["오늘"].tap()
+        reveal(active.staticTexts[first], in: app, upward: false)
+        XCTAssertTrue(active.buttons["일시정지"].exists)
+        active.buttons["일시정지"].tap()
+    }
+
+    @MainActor
+    func testRecoveryFromRunningWeekKeepsDetailOnCancelAndOpensAgendaOnSave() throws {
+        continueAfterFailure = false
+        let today = Date(), calendar = Calendar(identifier: .gregorian)
+        guard calendar.component(.weekday, from: today) != 2 else {
+            throw XCTSkip("월요일에는 이번 주 과거 일정이 없어 Today 재계획 진입 조건을 만들 수 없습니다.")
+        }
+        let yesterday = try XCTUnwrap(calendar.date(byAdding: .day, value: -1, to: today))
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(ko)", "-AppleLocale", "ko_KR"]
+        app.launch()
+        let first = "RecoverA \(UUID().uuidString.prefix(6))", second = "RecoverB \(UUID().uuidString.prefix(6))"
+        try createTodayPlans([first, second], in: app)
+        let firstRow = app.cells.containing(.staticText, identifier: first).firstMatch
+        let secondRow = app.cells.containing(.staticText, identifier: second).firstMatch
+        reveal(secondRow, in: app)
+        let secondID = secondRow.buttons["옮기기"].identifier
+        XCTAssertTrue(secondID.hasPrefix("week.row."))
+        secondRow.buttons["옮기기"].tap()
+        pickDate(yesterday, from: today, in: app); app.buttons["저장"].tap()
+        app.tabBars.buttons["오늘"].tap()
+        reveal(firstRow, in: app); firstRow.buttons["시작"].tap()
+        if app.buttons["일시정지하고 시작"].exists { app.buttons["일시정지하고 시작"].tap() }
+        app.buttons["일시정지"].tap(); app.buttons["오늘로 돌아가기"].tap()
+        reveal(app.buttons["이번 주 보기"], in: app); app.buttons["이번 주 보기"].tap()
+        reveal(firstRow, in: app, upward: false)
+        let firstID = firstRow.buttons["이어서 하기"].identifier
+        firstRow.buttons["이어서 하기"].tap()
+        XCTAssertTrue(app.navigationBars["실행 중"].waitForExistence(timeout: 5))
+        app.tabBars.buttons["오늘"].tap()
+        let recover = app.buttons["이번 주 계획 다시 고르기"]
+        reveal(recover, in: app); recover.tap()
+        XCTAssertTrue(app.navigationBars["이번 주 계획 다시 고르기"].waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertFalse(app.buttons["저장"].isEnabled)
+        let toggle = app.switches.matching(NSPredicate(format: "label BEGINSWITH %@", second + " · ")).firstMatch
+        reveal(toggle, in: app)
+        XCTAssertEqual(toggle.value as? String, "0")
+        toggle.switches.firstMatch.tap()
+        XCTAssertEqual(toggle.value as? String, "1")
+        app.buttons["취소"].tap(); app.buttons["변경 버리기"].tap()
+        XCTAssertTrue(app.navigationBars["오늘"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.tabBars.buttons["오늘"].isSelected)
+        app.tabBars.buttons["이번 주"].tap()
+        XCTAssertTrue(app.navigationBars["실행 중"].exists)
+        XCTAssertTrue(app.staticTexts[first].exists)
+        app.tabBars.buttons["오늘"].tap()
+        reveal(recover, in: app); recover.tap()
+        XCTAssertFalse(app.buttons["저장"].isEnabled)
+        reveal(toggle, in: app)
+        XCTAssertEqual(toggle.value as? String, "0")
+        toggle.switches.firstMatch.tap()
+        XCTAssertEqual(toggle.value as? String, "1")
+        app.buttons["저장"].tap()
+        XCTAssertTrue(app.navigationBars["이번 주"].waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertFalse(app.navigationBars["실행 중"].exists)
+        reveal(secondRow, in: app)
+        XCTAssertEqual(secondRow.buttons["옮기기"].identifier, secondID)
+        reveal(firstRow, in: app, upward: false)
+        XCTAssertEqual(firstRow.buttons["옮기기"].identifier, firstID)
+        XCTAssertTrue(firstRow.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "실행 중")).firstMatch.exists)
+        app.tabBars.buttons["오늘"].tap()
+        let active = app.cells.containing(.button, identifier: "실행 상세").firstMatch
+        reveal(active.staticTexts[first], in: app, upward: false)
+        XCTAssertTrue(active.staticTexts[first].isHittable)
+        XCTAssertTrue(active.buttons["일시정지"].exists)
+        active.buttons["일시정지"].tap()
+    }
+
+    @MainActor
     func testRunningSurvivesNavigationRelaunchAndSwitchCancellation() throws {
         continueAfterFailure = false
         let app = XCUIApplication(); app.launch()

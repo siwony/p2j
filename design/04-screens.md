@@ -97,7 +97,7 @@
 
 - CompletionSheet: 이름 → ‘완료했어요’ → 실제로 한 날짜 → 시간 미기록 또는 실제기록 → 선택적 분 직접입력 → 저장. 새 수행일로 정정할 때 오늘 이후 날짜는 거절하되 시각/이유 입력은 요구하지 않는다. 시간대 변경으로 저장된 수행일이 현지 오늘보다 뒤여도 기존 수행일을 표시·보존하며, 날짜를 그대로 둔 시간 수정은 허용한다. 날짜 정정은 완료 입력시각·실행 구간·계획/캘린더를 바꾸지 않는다. 취소는 편집 초안만 폐기, 실패는 초안 유지. ‘완료 취소’는 별도 action. 닫아도 이미 했어요 결과는 유지.
 - CalendarSheet: 대상주·쓰기 가능 캘린더 → ‘이 주 캘린더 연결’과 이후 추가/변경 자동 반영 안내 → 권한→저장. 끄기 전 기존 일정은 남고 대기/자동 반영은 중지됨을 설명한다. 다시 켜면 연결 정보와 외부 변경을 확인한다. 시간은 있지만 예상 길이가 없으면 해당 항목만 대기, 추후 입력 시 반영한다. 미허용/대기/일부실패/외부변경/반영됨 분리. 외부 수정·삭제는 사용자 선택 전 덮어쓰지 않는다. 주 이동은 두 주 연결 상태에 따라 제품 기획서의 규칙을 따른다. 수행일·메모·실제시간은 내보내지 않는다.
-- Navigation: Tab(Today, Week, Library, Records, Settings). Today start/Week paused resume→Running push in caller stack. Library→RoutineEditor sheet. Today/Week→Reschedule sheet. Completed row→Completion sheet. Week/Settings→Calendar sheet. Week→WeeklySelection sheet. sheet dismiss는 호출자 context와 focus 복원.
+- Navigation: Tab(Today, Week, Library, Records, Settings). Today start/Week paused resume→Running push in caller stack. Library→RoutineEditor sheet. Today/Week→Reschedule sheet. Completed row→Completion sheet. Week/Settings→Calendar sheet. Week→WeeklySelection sheet. sheet dismiss는 호출자 context와 focus 복원. Today의 ‘이번 주 보기’나 일정 이동 저장으로 날짜를 명시해 열면 Week의 이전 실행 상세를 닫고 대상 날짜 목록을 표시한다. 같은 날짜를 다시 여는 요청도 목록으로 돌아간다. 일반 탭 전환은 상세 탐색 상태를 보존하며, 상세를 닫는 동작은 실행 중 타이머·기록을 바꾸지 않는다.
 - 하나의 sheet enum을 root coordinator 또는 탭에 둔다. sheet 위에 sheet를 겹치지 않는다. editor에서 필요 picker는 같은 sheet의 native control. 변경된 draft의 취소/swipe는 ‘계속 편집 / 변경 버리기’로 처리한다. 저장성공 후 dismiss, 실패면 열린 채 유지.
 
 ## 프리뷰 계약

@@ -2,7 +2,7 @@ import SwiftData
 import SwiftUI
 
 struct WeekRequest: Identifiable, Equatable {
-    enum Kind { case plan, recovery }
+    enum Kind { case agenda, plan, recovery }
     let id = UUID()
     let kind: Kind
     let day: LocalDate
@@ -215,6 +215,12 @@ struct WeekView: View {
     }
     private func consumeRequest() {
         guard let request else { return }
+        if request.kind == .agenda {
+            callerFocus = .day; runningRoute = nil
+            today = LocalDate(.now); selectedDay = request.day; load()
+            focused = .day; self.request = nil
+            return
+        }
         callerDay = selectedDay; fromToday = true; succeeded = false; savedDay = nil
         today = LocalDate(.now); selectedDay = request.day; load()
         editor = Editor(kind: request.kind == .plan ? .plan : .adjustment(.recovery(recovery)))
@@ -230,7 +236,10 @@ struct WeekView: View {
         catch { self.error = error.localizedDescription }
     }
     private func didDismiss() {
-        if succeeded, let savedDay { selectedDay = savedDay }
+        if succeeded, let savedDay {
+            callerFocus = .day; runningRoute = nil
+            selectedDay = savedDay
+        }
         else if fromToday, let callerDay { selectedDay = callerDay }
         load()
         focused = succeeded ? .day : callerFocus
