@@ -34,7 +34,7 @@ final class RecordsUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["기록"].waitForExistence(timeout: 5))
         XCTAssertFalse(row.exists)
         let previous = app.collectionViews.buttons["지난주"]
-        reveal(previous, in: app, upward: false); previous.tap()
+        selectWeek(previous, in: app)
         reveal(row, in: app)
         XCTAssertEqual(row.identifier, recordID)
         XCTAssertTrue(row.staticTexts["0분 기록"].exists)
@@ -51,7 +51,7 @@ final class RecordsUITests: XCTestCase {
         app.tabBars.buttons["기록"].tap()
         XCTAssertFalse(row.exists) // The Records tab keeps its selected prior week.
         let current = app.collectionViews.buttons["이번 주"]
-        reveal(current, in: app, upward: false); current.tap()
+        selectWeek(current, in: app)
         reveal(row, in: app)
         XCTAssertEqual(row.identifier, recordID)
         XCTAssertTrue(row.staticTexts["0분 기록"].exists)
@@ -71,6 +71,9 @@ final class RecordsUITests: XCTestCase {
         let priorText = "지난주 메모 \(UUID().uuidString.prefix(6))"
         let backgroundText = "배경 전환 \(UUID().uuidString.prefix(6))"
         app.tabBars.buttons["기록"].tap()
+        let range = app.staticTexts["records.range"]
+        XCTAssertTrue(range.waitForExistence(timeout: 5))
+        let currentRange = range.label
         let memo = app.textViews["records.memo"]
         reveal(memo, in: app); memo.tap(); memo.typeText(currentText)
         // End native editing before tapping the tab bar covered by the software keyboard.
@@ -86,11 +89,13 @@ final class RecordsUITests: XCTestCase {
         reveal(memo, in: app)
         XCTAssertTrue((memo.value as? String)?.contains(currentText) == true)
         let previous = app.collectionViews.buttons["지난주"]
-        reveal(previous, in: app, upward: false); previous.tap()
+        let priorRange = selectWeek(previous, in: app)
         reveal(memo, in: app); memo.tap(); memo.typeText(priorText)
+        let entered = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value CONTAINS %@", priorText), object: memo)
+        XCTAssertEqual(XCTWaiter.wait(for: [entered], timeout: 5), .completed, app.debugDescription)
         app.buttons["입력 완료"].tap()
         let current = app.collectionViews.buttons["이번 주"]
-        reveal(current, in: app, upward: false); current.tap()
+        selectWeek(current, in: app, expectedRange: currentRange)
         reveal(memo, in: app)
         XCTAssertTrue((memo.value as? String)?.contains(currentText) == true)
         XCTAssertFalse((memo.value as? String)?.contains(priorText) == true)
@@ -109,7 +114,7 @@ final class RecordsUITests: XCTestCase {
         app.buttons["취소"].tap()
         XCTAssertTrue(app.tabBars.buttons["기록"].isSelected)
         XCTAssertTrue(app.navigationBars["기록"].exists)
-        reveal(previous, in: app, upward: false); previous.tap()
+        selectWeek(previous, in: app, expectedRange: priorRange)
         reveal(memo, in: app)
         XCTAssertTrue((memo.value as? String)?.contains(priorText) == true)
         let pastPlan = app.buttons["지난 계획 보기"]
@@ -147,6 +152,35 @@ final class RecordsUITests: XCTestCase {
             if element.exists && element.isHittable { return }
             if upward { app.collectionViews.firstMatch.swipeUp() } else { app.collectionViews.firstMatch.swipeDown() }
         }
+    }
+    @MainActor @discardableResult
+    private func selectWeek(_ button: XCUIElement, in app: XCUIApplication, expectedRange: String? = nil) -> String {
+        let range = app.staticTexts["records.range"]
+        let navigationBar = app.navigationBars["기록"], tabBar = app.tabBars.firstMatch
+        // isHittable can include controls behind the translucent navigation bar.
+        func visible() -> Bool {
+            button.exists && button.isHittable && !button.frame.isEmpty
+                && button.frame.minY >= navigationBar.frame.maxY
+                && button.frame.maxY <= tabBar.frame.minY
+                && range.exists && range.frame.minY >= navigationBar.frame.maxY
+        }
+        for _ in 0..<15 {
+            if visible() { break }
+            if !button.exists || button.frame.minY < navigationBar.frame.maxY
+                || !range.exists || range.frame.minY < navigationBar.frame.maxY {
+                app.collectionViews.firstMatch.swipeDown()
+            } else {
+                app.collectionViews.firstMatch.swipeUp()
+            }
+        }
+        XCTAssertTrue(visible(), app.debugDescription)
+        let originalRange = range.label
+        button.tap()
+        let predicate = expectedRange.map { NSPredicate(format: "label == %@", $0) }
+            ?? NSPredicate(format: "label != %@", originalRange)
+        let selected = XCTNSPredicateExpectation(predicate: predicate, object: range)
+        XCTAssertEqual(XCTWaiter.wait(for: [selected], timeout: 5), .completed, app.debugDescription)
+        return range.label
     }
     @MainActor private func pickDate(_ date: Date, from source: Date, in app: XCUIApplication) {
         app.datePickers.firstMatch.tap()
