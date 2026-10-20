@@ -242,9 +242,10 @@ final class WeekPlanUITests: XCTestCase {
     @MainActor
     private func choose(_ name: String, in app: XCUIApplication) {
         let toggle = app.switches[name]
-        reveal(toggle, in: app)
-        XCTAssertTrue(toggle.waitForExistence(timeout: 5), app.debugDescription)
-        toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        let control = toggle.switches.firstMatch
+        reveal(control, in: app)
+        XCTAssertTrue(control.waitForExistence(timeout: 5), app.debugDescription)
+        control.tap()
         XCTAssertEqual(toggle.value as? String, "1", app.debugDescription)
     }
     @MainActor
