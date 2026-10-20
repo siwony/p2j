@@ -8,6 +8,7 @@ struct WeeklySelectionSheet: View {
     let onSaved: (LocalDate) -> Void
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
+    @Environment(WeeklyMemoCoordinator.self) private var memos
     @State private var draft: PlanDraft
     @State private var routines: [RoutineSnapshot] = []
     @State private var previous: [OccurrenceSnapshot] = []
@@ -27,6 +28,11 @@ struct WeeklySelectionSheet: View {
     }
     private var dirty: Bool { !draft.entries.isEmpty || !selected.isEmpty || !selectedPrevious.isEmpty }
     private var lastDay: LocalDate { week.adding(days: 6) }
+    private var previousMemo: WeeklyMemoCoordinator.Draft { memos.draft(for: week.adding(days: -7)) }
+    private var showsPreviousMemo: Bool {
+        if case .failed = previousMemo.status { return true }
+        return !previousMemo.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
 
     var body: some View {
         NavigationStack {
@@ -37,6 +43,20 @@ struct WeeklySelectionSheet: View {
                     Text("담기 전에는 일정이 만들어지지 않아요.").foregroundStyle(DesignTokens.textSecondary)
                 }
                 if let error { Section { Text(error).foregroundStyle(DesignTokens.textSecondary).accessibilityIdentifier("week.error").accessibilityFocused($errorFocused).id("week.error") } }
+                if draft.entries.isEmpty, showsPreviousMemo {
+                    Section("지난주 메모") {
+                        if !previousMemo.body.isEmpty {
+                            Text(previousMemo.body).accessibilityIdentifier("week.previousMemo")
+                        }
+                        if case .failed(let message) = previousMemo.status {
+                            Text(previousMemo.isLoaded ? "저장하지 못한 메모" : "메모를 불러오지 못했어요").font(.footnote)
+                            Text(message).font(.footnote)
+                            Button(previousMemo.isLoaded ? "다시 저장" : "다시 불러오기") {
+                                memos.retry(week: week.adding(days: -7), in: context)
+                            }
+                        }
+                    }
+                }
                 if !existing.isEmpty {
                     Section("이미 담은 일정") {
                         ForEach(existing) { item in
@@ -92,7 +112,7 @@ struct WeeklySelectionSheet: View {
                 ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("입력 완료") { countFocused = nil } }
             }
             .modifier(PlanDismissal(dirty: dirty, onDiscard: { dismiss() }, confirming: $confirming))
-            .task { loadRoutines() }
+            .task { loadRoutines(); memos.load(week: week.adding(days: -7), in: context) }
             .onChange(of: error) { if error != nil { proxy.scrollTo("week.error", anchor: .top) } }
             .onChange(of: confirming) {
                 if confirming { returnCountFocus = countFocused; countFocused = nil }

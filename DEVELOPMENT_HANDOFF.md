@@ -2,7 +2,7 @@
 
 ## 상태와 읽는 순서
 
-Stage: foundation merged (#4); routine editing, optional fields, archive/restore, and draft dismissal implemented in #7. Week planning, LocalDate, occurrence snapshots, move/skip/restore, bulk rest and Today recovery are implemented in #8. Execution/timer/direct completion, record edits/date correction and atomic running rest are implemented in #9. Feature verification/review evidence is tracked in that issue/PR. Full MVP acceptance pending. Product spec 1.3 adopted in #18; weekly Records/OS integration and full acceptance pending in #10–#13.
+Stage: foundation merged (#4); routine editing, optional fields, archive/restore, and draft dismissal implemented in #7. Week planning, LocalDate, occurrence snapshots, move/skip/restore, bulk rest and Today recovery are implemented in #8. Execution/timer/direct completion, record edits/date correction and atomic running rest are implemented in #9. Feature verification/review evidence is tracked in that issue/PR. Weekly Records performed-date grouping, optional time summaries and free memo/planning reference are implemented in #10. Full MVP acceptance pending. Product spec 1.3 adopted in #18; OS integration and full acceptance pending in #11–#13.
 
 Before assigned work: `docs/development/planning-revision-1.3.md` → delta/AC/owner/scenarios. Reject stale 1.2 policies: empty-week-only rest, completion-entry-date aggregation, manual export of newly added items, time-first Records.
 

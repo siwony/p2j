@@ -1,3 +1,4 @@
+import SwiftData
 import SwiftUI
 
 struct AppTabs: View {
@@ -8,6 +9,9 @@ struct AppTabs: View {
     @State private var selection: Tab = .today
     @State private var weekDay = LocalDate(.now)
     @State private var weekRequest: WeekRequest?
+    @State private var memos = WeeklyMemoCoordinator()
+    @Environment(\.modelContext) private var context
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         TabView(selection: $selection) {
@@ -22,7 +26,7 @@ struct AppTabs: View {
 
             NavigationStack {
                 WeekView(selectedDay: $weekDay, request: $weekRequest,
-                    returnToToday: { selection = .today }, openLibrary: { selection = .library })
+                    returnToCaller: { selection = $0 == .today ? .today : .records }, openLibrary: { selection = .library })
             }
             .tabItem { Label("이번 주", systemImage: "calendar") }
             .tag(Tab.week)
@@ -32,9 +36,11 @@ struct AppTabs: View {
                 .tag(Tab.library)
 
             NavigationStack {
-                emptyScreen(title: "기록", message: "완료한 일은 오늘과 이번 주에서 확인할 수 있어요.") {
-                    EmptyView()
-                }
+                RecordsView(openWeek: { day in
+                    weekRequest = WeekRequest(kind: .agenda, day: day, caller: .records); selection = .week
+                }, planNextWeek: { day in
+                    weekRequest = WeekRequest(kind: .plan, day: day, caller: .records); selection = .week
+                })
             }
             .tabItem { Label("기록", systemImage: "text.book.closed") }
             .tag(Tab.records)
@@ -54,22 +60,10 @@ struct AppTabs: View {
             .tabItem { Label("설정", systemImage: "gearshape") }
             .tag(Tab.settings)
         }
-    }
-
-    private func emptyScreen<Actions: View>(
-        title: String, message: String, @ViewBuilder actions: () -> Actions
-    ) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: DesignTokens.spacing) {
-                Text(message)
-                    .font(.title2)
-                actions()
-                    .buttonStyle(.bordered)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(DesignTokens.screenInset)
+        .environment(memos)
+        .onChange(of: selection) { previous, _ in
+            if previous == .records { memos.flushAll(in: context) }
         }
-        .background(DesignTokens.background)
-        .navigationTitle(title)
+        .onChange(of: scenePhase) { if scenePhase != .active { memos.flushAll(in: context) } }
     }
 }

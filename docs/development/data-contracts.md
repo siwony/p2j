@@ -47,6 +47,17 @@ ExecutionRecorder는 앱 수명의 MainActor 명령 소유자다. start/pause/co
 
 수동 총시간은 manualThroughSequence까지의 원본 시간을 대체하며 이후 구간만 더한다. 구간/시각은 삭제하지 않는다. 입력 비우기는 측정 원본 또는 확인 필요로 복원한다. 수행일만 정정하면 exact seconds·수동값·적용 경계·입력 사실을 유지한다. 완료 취소/재완료도 구간·수동값은 보존한다. 종료/재부팅과 수동 시계 변경의 모든 조합을 판별할 수 있다는 보장은 없으며 실제 기기 확인은 #13에 남긴다.
 
+## #10 기록·메모 저장 계약
+
+결정과 실제 이전 검증은 [ADR 0003](../adr/0003-weekly-records-and-memo.md)와 #10 구현 PR에서 추적한다. V4는 V1–V3 영속 정의를 재사용하며 WeeklyMemo와 OccurrenceDateMove를 추가한다. 기존 정의를 고치지 않고 migration 목록과 현재 container만 확장한다.
+
+- `RecordsStore.fetch(week:in:at:)`: performedOn의 월~일 범위와 completed 상태로 값 snapshot을 읽는다. 회차 ID당 한 번, routine ID별 횟수와 과거 snapshot 이름을 사용한다. 편집/취소/재완료 뒤 두 주를 다시 조회하면 현재 저장 상태가 반영되며 계획·메모는 움직이지 않는다.
+- 확정 `RecordedDuration.seconds`만 합산한다. 불확실 기록의 `knownSeconds`는 전체 합계에서 제외한다. nil·0·1분 미만·확인 필요와 합계 overflow를 구분하며 예상 시간을 대입하지 않는다. 합계가 없어도 완료 목록·횟수·메모는 제공한다.
+- `fetchMemo(week:in:)`와 `saveMemo(week:body:in:save:)`: 월요일 key 하나의 원문을 사용한다. 조회는 빈 모델을 만들지 않으며, 공백·줄바꿈·공란 저장과 기존 본문 비우기를 허용한다. 저장은 별도 context의 한 transaction이며 실패 시 이전 영속 본문을 유지한다.
+- 앱 수명의 WeeklyMemoCoordinator는 주별 초안·세대·저장 결과를 소유한다. 500ms debounce와 focus/scene/주/탭 이탈 flush는 고정된 대상 주와 최신 본문을 사용한다. 실패 초안은 재조회로 덮지 않고 ‘다시 저장’을 제공한다. 다른 주 이동·메모 없는 계획은 허용한다.
+- 주간 계획은 대상 주의 직전 주 메모를 루틴 선택 전에 참고로 표시한다. 공란은 생략하고 실패 초안을 표시할 때 미저장 상태를 알린다. Records의 지난 계획은 선택 주 agenda, 다음 주 계획은 현재 현지 날짜 기준 다음 주를 명시해 연다. 호출자별 취소 복귀와 #30의 명시 날짜 요청 계약을 유지한다.
+- 날짜 이동 근거는 실제 `PlanWriter.move/replan`에서 날짜가 달라질 때 계획과 원자 저장한다. 복원하며 날짜를 바꾸는 경우도 포함한다. 첫 출발·도착 날짜를 보존하며 같은 날짜의 시각 수정·수행일 정정은 근거를 만들지 않는다. 기존 데이터의 이동을 추정하지 않고, 근거가 있는 완료 행만 ‘날짜를 옮겨 마침’을 표시한다.
+
 ## 병렬 기술 조사에서 확정한 경계
 
 `technology_research`가 Apple 공식 문서와 설치된 SDK를 확인했다. iOS 17에서 기본 SwiftData/Observation API를 사용할 수 있으며, Swift 6 언어 모드는 deployment target과 별개다. 이후 버전의 `#Unique`, `#Index`, History API를 가정하지 않는다.

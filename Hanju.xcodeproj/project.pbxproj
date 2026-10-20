@@ -5,6 +5,96 @@
 	"objectVersion" = "56";
 	"archiveVersion" = "1";
 	"objects" = {
+		"64D7DFB3205F7671415B793F" = {
+			"isa" = "PBXFileReference";
+			"lastKnownFileType" = "sourcecode.swift";
+			"path" = "Hanju/Models/HanjuSchemaV4.swift";
+			"sourceTree" = "<group>";
+		};
+		"E2EEDCFD09DEF4869AB37B4F" = {
+			"isa" = "PBXBuildFile";
+			"fileRef" = "64D7DFB3205F7671415B793F";
+		};
+		"3EE03AB57342CBB448558171" = {
+			"isa" = "PBXFileReference";
+			"lastKnownFileType" = "sourcecode.swift";
+			"path" = "Hanju/Features/Records/RecordsSnapshot.swift";
+			"sourceTree" = "<group>";
+		};
+		"0F62A5E3B28FF29203873742" = {
+			"isa" = "PBXBuildFile";
+			"fileRef" = "3EE03AB57342CBB448558171";
+		};
+		"C1EF008C6C407461F72B8E3D" = {
+			"isa" = "PBXFileReference";
+			"lastKnownFileType" = "sourcecode.swift";
+			"path" = "Hanju/Features/Records/RecordsStore.swift";
+			"sourceTree" = "<group>";
+		};
+		"F8F2B6F3C3EDE28AC561FF42" = {
+			"isa" = "PBXBuildFile";
+			"fileRef" = "C1EF008C6C407461F72B8E3D";
+		};
+		"05A2EDE90A84FC3BAA22D596" = {
+			"isa" = "PBXFileReference";
+			"lastKnownFileType" = "sourcecode.swift";
+			"path" = "Hanju/Features/Records/RecordsView.swift";
+			"sourceTree" = "<group>";
+		};
+		"96159AA236CDC88AE8CBEE58" = {
+			"isa" = "PBXBuildFile";
+			"fileRef" = "05A2EDE90A84FC3BAA22D596";
+		};
+		"EC072CAD01DADD68C5F382ED" = {
+			"isa" = "PBXFileReference";
+			"lastKnownFileType" = "sourcecode.swift";
+			"path" = "Hanju/Features/Records/WeeklyMemoCoordinator.swift";
+			"sourceTree" = "<group>";
+		};
+		"A4D00C2679ADBCD083F202A5" = {
+			"isa" = "PBXBuildFile";
+			"fileRef" = "EC072CAD01DADD68C5F382ED";
+		};
+		"BE3181DD2AB0E7610D1D9F32" = {
+			"isa" = "PBXFileReference";
+			"lastKnownFileType" = "sourcecode.swift";
+			"path" = "HanjuTests/RecordsTests.swift";
+			"sourceTree" = "<group>";
+		};
+		"D55CD9E05BA1FA8500DF0650" = {
+			"isa" = "PBXBuildFile";
+			"fileRef" = "BE3181DD2AB0E7610D1D9F32";
+		};
+		"7B3ED554C6704B3739D3F19D" = {
+			"isa" = "PBXFileReference";
+			"lastKnownFileType" = "sourcecode.swift";
+			"path" = "HanjuTests/RecordsMigrationTests.swift";
+			"sourceTree" = "<group>";
+		};
+		"5C7B1FF7DECCFA2E89B07F0A" = {
+			"isa" = "PBXBuildFile";
+			"fileRef" = "7B3ED554C6704B3739D3F19D";
+		};
+		"30B3F368060315382424A3C0" = {
+			"isa" = "PBXFileReference";
+			"lastKnownFileType" = "sourcecode.swift";
+			"path" = "HanjuTests/WeeklyMemoCoordinatorTests.swift";
+			"sourceTree" = "<group>";
+		};
+		"2D78D675062B50DA2408B2B1" = {
+			"isa" = "PBXBuildFile";
+			"fileRef" = "30B3F368060315382424A3C0";
+		};
+		"892744D4F3EE524082677172" = {
+			"isa" = "PBXFileReference";
+			"lastKnownFileType" = "sourcecode.swift";
+			"path" = "HanjuUITests/RecordsUITests.swift";
+			"sourceTree" = "<group>";
+		};
+		"BCAF72158ADCE69860356A94" = {
+			"isa" = "PBXBuildFile";
+			"fileRef" = "892744D4F3EE524082677172";
+		};
 		"A6FCBFFEAE263E49D05300BC" = {
 			"isa" = "PBXFileReference";
 			"lastKnownFileType" = "sourcecode.swift";
@@ -607,6 +697,15 @@
 			"isa" = "PBXGroup";
 			"sourceTree" = "<group>";
 			"children" = (
+				"64D7DFB3205F7671415B793F",
+				"3EE03AB57342CBB448558171",
+				"C1EF008C6C407461F72B8E3D",
+				"05A2EDE90A84FC3BAA22D596",
+				"EC072CAD01DADD68C5F382ED",
+				"BE3181DD2AB0E7610D1D9F32",
+				"7B3ED554C6704B3739D3F19D",
+				"30B3F368060315382424A3C0",
+				"892744D4F3EE524082677172",
 				"A6FCBFFEAE263E49D05300BC",
 				"F54FB078E621C4D0C09DE053",
 				"B33E6568B4CE56D2D5816E2E",
@@ -656,6 +755,11 @@
 			"isa" = "PBXSourcesBuildPhase";
 			"buildActionMask" = "2147483647";
 			"files" = (
+				"E2EEDCFD09DEF4869AB37B4F",
+				"0F62A5E3B28FF29203873742",
+				"F8F2B6F3C3EDE28AC561FF42",
+				"96159AA236CDC88AE8CBEE58",
+				"A4D00C2679ADBCD083F202A5",
 				"C6891A4C36F1437F77AE63A8",
 				"18AEAADBB51C8A9DEBAE3560",
 				"96A453E4C61E1157AB5EC799",
@@ -701,6 +805,9 @@
 			"isa" = "PBXSourcesBuildPhase";
 			"buildActionMask" = "2147483647";
 			"files" = (
+				"D55CD9E05BA1FA8500DF0650",
+				"5C7B1FF7DECCFA2E89B07F0A",
+				"2D78D675062B50DA2408B2B1",
 				"36C97184FAE7257B24A57E61",
 				"B8B3F4C7683FB87E8E104D4A",
 				"A12A772D7BEF381D0EE71385",
@@ -804,6 +911,7 @@
 			"isa" = "PBXSourcesBuildPhase";
 			"buildActionMask" = 2147483647;
 			"files" = (
+				"BCAF72158ADCE69860356A94",
 				"14898A770A33D521872172B5",
 				"9CF4DF4243583888CF7C4389",
 				"4B39B72DD1C4587603748528",

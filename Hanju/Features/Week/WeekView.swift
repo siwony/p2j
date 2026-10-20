@@ -6,12 +6,17 @@ struct WeekRequest: Identifiable, Equatable {
     let id = UUID()
     let kind: Kind
     let day: LocalDate
+    enum Caller { case today, records }
+    let caller: Caller
+    init(kind: Kind, day: LocalDate, caller: Caller = .today) {
+        self.kind = kind; self.day = day; self.caller = caller
+    }
 }
 
 struct WeekView: View {
     @Binding var selectedDay: LocalDate
     @Binding var request: WeekRequest?
-    let returnToToday: () -> Void
+    let returnToCaller: (WeekRequest.Caller) -> Void
     let openLibrary: () -> Void
     @Environment(\.modelContext) private var context
     @Environment(ExecutionRecorder.self) private var recorder
@@ -23,7 +28,7 @@ struct WeekView: View {
     @State private var completedNotice: UUID?
     @State private var editor: Editor?
     @State private var callerDay: LocalDate?
-    @State private var fromToday = false
+    @State private var requestCaller: WeekRequest.Caller?
     @State private var savedDay: LocalDate?
     @State private var succeeded = false
     @State private var skipTarget: OccurrenceSnapshot?
@@ -134,7 +139,7 @@ struct WeekView: View {
                         Button("이번 주 남은 일정 쉬기") { show(.adjustment(.rest(unfinished)), focus: .rest) }
                             .accessibilityFocused($focused, equals: .rest)
                     } else if rows.isEmpty {
-                        Button("이번 주 쉬기", action: returnToToday)
+                        Button("이번 주 쉬기") { returnToCaller(.today) }
                     }
                 }
             }
@@ -210,7 +215,7 @@ struct WeekView: View {
         return [row.time?.label, duration, status].compactMap { $0 }.joined(separator: " · ")
     }
     private func show(_ kind: Editor.Kind, focus: Focus) {
-        succeeded = false; savedDay = nil; fromToday = false; callerDay = nil
+        succeeded = false; savedDay = nil; requestCaller = nil; callerDay = nil
         callerFocus = focus; editor = Editor(kind: kind)
     }
     private func consumeRequest() {
@@ -221,7 +226,7 @@ struct WeekView: View {
             focused = .day; self.request = nil
             return
         }
-        callerDay = selectedDay; fromToday = true; succeeded = false; savedDay = nil
+        callerDay = selectedDay; requestCaller = request.caller; succeeded = false; savedDay = nil
         today = LocalDate(.now); selectedDay = request.day; load()
         editor = Editor(kind: request.kind == .plan ? .plan : .adjustment(.recovery(recovery)))
         self.request = nil
@@ -240,11 +245,11 @@ struct WeekView: View {
             callerFocus = .day; runningRoute = nil
             selectedDay = savedDay
         }
-        else if fromToday, let callerDay { selectedDay = callerDay }
+        else if requestCaller != nil, let callerDay { selectedDay = callerDay }
         load()
         focused = succeeded ? .day : callerFocus
-        if fromToday && !succeeded { returnToToday() }
-        fromToday = false; callerDay = nil
+        if let requestCaller, !succeeded { returnToCaller(requestCaller) }
+        requestCaller = nil; callerDay = nil
     }
     private func refreshClock() { today = LocalDate(.now); load() }
     private func load() {
