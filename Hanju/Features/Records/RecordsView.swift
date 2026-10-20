@@ -145,7 +145,7 @@ struct RecordsView: View {
         case .saved: Text("저장됨").font(.footnote).foregroundStyle(DesignTokens.textSecondary)
         case .failed(let message):
             Text(message).font(.footnote)
-            Button(memo.isLoaded ? "다시 저장" : "메모 다시 불러오기") { memos.retry(week: week, in: context) }
+            Button(memo.isDirty ? "다시 저장" : "메모 다시 불러오기") { memos.retry(week: week, in: context) }
         }
     }
     private func changeWeek(_ destination: LocalDate) {

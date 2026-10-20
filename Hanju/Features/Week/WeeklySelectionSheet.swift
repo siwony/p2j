@@ -49,9 +49,9 @@ struct WeeklySelectionSheet: View {
                             Text(previousMemo.body).accessibilityIdentifier("week.previousMemo")
                         }
                         if case .failed(let message) = previousMemo.status {
-                            Text(previousMemo.isLoaded ? "저장하지 못한 메모" : "메모를 불러오지 못했어요").font(.footnote)
+                            Text(previousMemo.isDirty ? "저장하지 못한 메모" : "메모를 불러오지 못했어요").font(.footnote)
                             Text(message).font(.footnote)
-                            Button(previousMemo.isLoaded ? "다시 저장" : "다시 불러오기") {
+                            Button(previousMemo.isDirty ? "다시 저장" : "다시 불러오기") {
                                 memos.retry(week: week.adding(days: -7), in: context)
                             }
                         }
