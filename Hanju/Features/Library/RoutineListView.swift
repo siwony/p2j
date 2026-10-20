@@ -91,6 +91,7 @@ struct RoutineListView: View {
                 Button("확인", role: .cancel) { actionError = nil }
             } message: { Text(actionError ?? "") }
             .task { load() }
+        .notificationPresentation(owner: "library", blocked: editor != nil)
             .onChange(of: routines) {
                 if let savedID {
                     proxy.scrollTo(savedID, anchor: .center)

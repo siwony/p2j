@@ -2,7 +2,7 @@
 
 ## 상태와 읽는 순서
 
-Stage: foundation merged (#4); routine editing, optional fields, archive/restore, and draft dismissal implemented in #7. Week planning, LocalDate, occurrence snapshots, move/skip/restore, bulk rest and Today recovery are implemented in #8. Execution/timer/direct completion, record edits/date correction and atomic running rest are implemented in #9. Feature verification/review evidence is tracked in that issue/PR. Weekly Records performed-date grouping, optional time summaries and free memo/planning reference are implemented in #10. Full MVP acceptance pending. Product spec 1.3 adopted in #18; OS integration and full acceptance pending in #11–#13.
+Stage: foundation merged (#4); routine editing, optional fields, archive/restore, and draft dismissal implemented in #7. Week planning, LocalDate, occurrence snapshots, move/skip/restore, bulk rest and Today recovery are implemented in #8. Execution/timer/direct completion, record edits/date correction and atomic running rest are implemented in #9. Feature verification/review evidence is tracked in that issue/PR. Weekly Records performed-date grouping, optional time summaries and free memo/planning reference are implemented in #10. This change includes local notifications/settings/manual snooze in #11; actual verification/review/merge state is tracked in its issue/PR. Product spec 1.3 adopted in #18. Calendar integration #12 and full MVP acceptance #13 remain pending.
 
 Before assigned work: `docs/development/planning-revision-1.3.md` → delta/AC/owner/scenarios. Reject stale 1.2 policies: empty-week-only rest, completion-entry-date aggregation, manual export of newly added items, time-first Records.
 
@@ -39,3 +39,5 @@ MVP excludes Mac, CloudKit, server, account, payment. Native SwiftUI; no HTML We
 `docs/.archive/`: historical reviews + compression originals; exclude default reads. Read `design/reference/user-design-brief.txt` only for source conflicts.
 
 Technical decisions: `docs/adr/0001-native-ios-foundation.md`, `docs/adr/0002-execution-time-and-recovery.md`. Data contracts: `docs/development/data-contracts.md`. Local build: `docs/development/local-development.md`.
+
+#11 ownership (2026-10-21): planning handoff `issues/11#issuecomment-6303010134`; base main `4c68330`. Worker `fix_rebase_hook` owns notifications/Settings/routing/new tests/project registration in managed `issue-11-notifications` worktree. Root owns docs/Git/integration; `review_collaboration_rules` independent review; `notification_api_research` read-only Apple/SDK research. No V5; [ADR 0004](docs/adr/0004-local-notifications-and-reconciliation.md) owns atomic notification file + save/reconcile/crash boundaries. Source implementation, local evidence, latest-head reviews/CI, code merge and postmerge Graphify are separate milestones. Actual device delivery/Focus/iOS 17/full accessibility remain #13; calendar #12 follows.

@@ -8,7 +8,12 @@ struct TodayView: View {
     let openLibrary: () -> Void
     @Environment(\.modelContext) private var context
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(NotificationCoordinator.self) private var notifications
+    @State private var consumedNotificationID: UUID?
+    @State private var notificationTargets: [ExecutionSnapshot] = []
+    @State private var startingNotification: NotificationRoute?
     @Environment(ExecutionRecorder.self) private var recorder
+    @State private var isVisible = false
     @State private var today = LocalDate(.now)
     @State private var rows: [OccurrenceSnapshot] = []
     @State private var completed: [ExecutionSnapshot] = []
@@ -32,6 +37,24 @@ struct TodayView: View {
     var body: some View {
         List {
             Section { Text(today.fullLabel).font(.headline) }
+            if let route = notifications.route, !route.ticket.isPlanning {
+                Section("알림에서 선택한 일") {
+                    ForEach(notificationTargets) { source in
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(source.occurrence.name).font(.headline)
+                            Text("원래 계획한 날짜 · \(source.occurrence.day.fullLabel)")
+                                .font(.subheadline).foregroundStyle(DesignTokens.textSecondary)
+                            Button { startNotification(source.id, route: route) } label: {
+                                Text("시작").frame(minWidth: 44, minHeight: 44, alignment: .leading).contentShape(Rectangle())
+                            }
+                            .buttonStyle(.borderless).accessibilityIdentifier("notifications.start.\(source.id)")
+                        }
+                    }
+                    if notificationTargets.isEmpty { Text("현재 시작할 수 있는 일이 없어요. 계획이 변경됐을 수 있어요.") }
+                    Button("닫기") { notifications.dismissRoute() }
+                }.accessibilityIdentifier("notifications.targets")
+            }
+            if let message = notifications.message { Section { Text(message) } }
             if let error = error ?? recorder.failure { Section { Text(error); Button("다시 시도") { recorder.refresh(); load() } } }
             if let active = recorder.active {
                 Section {
@@ -105,11 +128,18 @@ struct TodayView: View {
         .confirmationDialog("하던 일을 일시정지하고 시작할까요?", isPresented: $confirmSwitch, titleVisibility: .visible) {
             Button("일시정지하고 시작") {
                 guard let pendingStart else { return }
-                perform { try recorder.start(pendingStart, replacing: replacing); runningRoute = RunningRoute(id: pendingStart.id) }
+                perform {
+                    if let startingNotification { try notifications.start(pendingStart.id, from: startingNotification, replacing: replacing) }
+                    else { try recorder.start(pendingStart, replacing: replacing) }
+                    runningRoute = RunningRoute(id: pendingStart.id); startingNotification = nil
+                }
             }
-            Button("취소", role: .cancel) { focused = pendingStart?.id }
+            Button("취소", role: .cancel) { focused = pendingStart?.id; startingNotification = nil }
         } message: { if let replacing { Text(replacing.occurrence.name) } }
-        .onAppear { recorder.refresh(); load() }
+        .notificationPresentation(owner: "today", blocked: editing != nil || confirmSwitch)
+        .onAppear { isVisible = true; recorder.refresh(); load(); consumeNotification() }
+        .onDisappear { isVisible = false; notifications.setVisibleTargets(owner: "today", ids: []) }
+        .onChange(of: notifications.route?.id) { consumeNotification() }
         .onChange(of: recorder.revision) { load() }
         .onChange(of: scenePhase) { if scenePhase == .active { recorder.refresh(); load() } }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in recorder.refresh(); load() }
@@ -126,11 +156,34 @@ struct TodayView: View {
         Button("옮기기") { caller = row.id; movedDay = nil; editing = .move(row) }.buttonStyle(.borderless)
     }
     private func start(_ id: UUID) {
+        startingNotification = nil
         perform {
             let source = try recorder.read(id)
             if let active = recorder.active, active.id != id {
                 pendingStart = source; replacing = active; confirmSwitch = true
             } else { try recorder.start(source); runningRoute = RunningRoute(id: id) }
+        }
+    }
+    private func consumeNotification() {
+        guard let route = notifications.route, !route.ticket.isPlanning else { notificationTargets = []; return }
+        guard consumedNotificationID != route.id else { return }
+        consumedNotificationID = route.id
+        runningRoute = nil // Reveal this explicit request without pausing the existing timer.
+        perform {
+            notificationTargets = try notifications.targets(for: route)
+            if route.action == .start, route.ticket.targets.count == 1, notificationTargets.count == 1, let source = notificationTargets.first {
+                startNotification(source.id, route: route)
+            }
+        }
+    }
+    private func startNotification(_ id: UUID, route: NotificationRoute) {
+        perform {
+            guard let source = try notifications.targets(for: route).first(where: { $0.id == id }) else { throw NotificationFailure.changed }
+            if let active = recorder.active, active.id != id {
+                pendingStart = source; replacing = active; startingNotification = route; confirmSwitch = true
+            } else {
+                try notifications.start(id, from: route); runningRoute = RunningRoute(id: id)
+            }
         }
     }
     private func complete(_ id: UUID) {
@@ -148,7 +201,11 @@ struct TodayView: View {
         today = LocalDate(.now)
         do { rows = try PlanWriter.fetch(week: today.monday, in: context); completed = try recorder.completed(on: today)
             if let completedNotice, !completed.contains(where: { $0.id == completedNotice }) { self.completedNotice = nil }
-            error = nil }
+            if let route = notifications.route, !route.ticket.isPlanning {
+                notificationTargets = try notifications.targets(for: route)
+            } else { notificationTargets = [] }
+            error = nil
+            if isVisible { notifications.setVisibleTargets(owner: "today", ids: Set(rows.filter { $0.day == today }.map(\.id))) } }
         catch { self.error = error.localizedDescription }
     }
 }

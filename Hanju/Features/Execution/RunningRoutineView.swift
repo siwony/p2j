@@ -3,6 +3,7 @@ import SwiftUI
 struct RunningRoutineView: View {
     let occurrenceID: UUID
     var returnLabel = "오늘로 돌아가기"
+    @Environment(NotificationCoordinator.self) private var notifications
     @Environment(ExecutionRecorder.self) private var recorder
     @Environment(\.dismiss) private var dismiss
     @State private var source: ExecutionSnapshot?
@@ -44,7 +45,10 @@ struct RunningRoutineView: View {
             }.frame(maxWidth: .infinity, alignment: .leading).padding(DesignTokens.screenInset)
         }
         .background(DesignTokens.background).navigationTitle("실행 중").navigationBarTitleDisplayMode(.inline)
-        .onAppear(perform: load).onChange(of: recorder.revision) { load() }
+        .notificationPresentation(owner: "running", blocked: confirmSwitch)
+        .onAppear { load(); notifications.setVisibleTargets(owner: "running", ids: [occurrenceID]) }
+        .onDisappear { notifications.setVisibleTargets(owner: "running", ids: []) }
+        .onChange(of: recorder.revision) { load() }
         .confirmationDialog("하던 일을 일시정지하고 시작할까요?", isPresented: $confirmSwitch, titleVisibility: .visible) {
             Button("일시정지하고 시작") {
                 guard let source else { return }; perform { try recorder.start(source, replacing: replacing) }
