@@ -79,7 +79,7 @@ final class WeeklyMemoCoordinator {
     }
 
     func retry(week: LocalDate, in context: ModelContext) {
-        if draft(for: week).isLoaded { flush(week: week, in: context) }
+        if draft(for: week).isDirty { flush(week: week, in: context) }
         else { load(week: week, in: context) }
     }
 }

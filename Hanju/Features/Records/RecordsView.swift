@@ -65,6 +65,8 @@ struct RecordsView: View {
                                             Text("날짜를 옮겨 마침").font(.footnote).foregroundStyle(DesignTokens.textSecondary)
                                         }
                                     }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain).accessibilityIdentifier("records.row.\(record.id)")
                                 .accessibilityHint("실행 기록 편집").accessibilityFocused($focused, equals: .row(record.id))
@@ -145,7 +147,7 @@ struct RecordsView: View {
         case .saved: Text("저장됨").font(.footnote).foregroundStyle(DesignTokens.textSecondary)
         case .failed(let message):
             Text(message).font(.footnote)
-            Button(memo.isLoaded ? "다시 저장" : "메모 다시 불러오기") { memos.retry(week: week, in: context) }
+            Button(memo.isDirty ? "다시 저장" : "메모 다시 불러오기") { memos.retry(week: week, in: context) }
         }
     }
     private func changeWeek(_ destination: LocalDate) {
