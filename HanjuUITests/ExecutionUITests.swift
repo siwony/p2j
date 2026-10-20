@@ -18,6 +18,7 @@ final class ExecutionUITests: XCTestCase {
         app.scrollViews.buttons["일시정지"].tap(); app.scrollViews.buttons["오늘로 돌아가기"].tap()
         app.tabBars.buttons["이번 주"].tap()
         reveal(firstRow, in: app, upward: false)
+        if !firstRow.exists || !firstRow.buttons["이어서 하기"].isHittable { reveal(firstRow, in: app) }
         let firstID = firstRow.buttons["이어서 하기"].identifier
         XCTAssertTrue(firstID.hasPrefix("week.row."))
         firstRow.buttons["이어서 하기"].tap()
@@ -52,6 +53,7 @@ final class ExecutionUITests: XCTestCase {
         active.buttons["일시정지"].tap()
         reveal(app.buttons["이번 주 보기"], in: app); app.buttons["이번 주 보기"].tap()
         reveal(firstRow, in: app, upward: false)
+        if !firstRow.exists || !firstRow.buttons["이어서 하기"].isHittable { reveal(firstRow, in: app) }
         XCTAssertEqual(firstRow.buttons["이어서 하기"].identifier, firstID)
         firstRow.buttons["이어서 하기"].tap()
         XCTAssertTrue(app.navigationBars["실행 중"].waitForExistence(timeout: 5))
@@ -60,6 +62,7 @@ final class ExecutionUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["이번 주"].waitForExistence(timeout: 5), app.debugDescription)
         XCTAssertFalse(app.navigationBars["실행 중"].exists)
         reveal(firstRow, in: app, upward: false)
+        if !firstRow.exists || !firstRow.buttons["옮기기"].isHittable { reveal(firstRow, in: app) }
         XCTAssertEqual(firstRow.buttons["옮기기"].identifier, firstID)
         XCTAssertTrue(firstRow.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "실행 중")).firstMatch.exists)
         app.tabBars.buttons["오늘"].tap()
@@ -95,6 +98,7 @@ final class ExecutionUITests: XCTestCase {
         app.scrollViews.buttons["일시정지"].tap(); app.scrollViews.buttons["오늘로 돌아가기"].tap()
         reveal(app.buttons["이번 주 보기"], in: app); app.buttons["이번 주 보기"].tap()
         reveal(firstRow, in: app, upward: false)
+        if !firstRow.exists || !firstRow.buttons["이어서 하기"].isHittable { reveal(firstRow, in: app) }
         let firstID = firstRow.buttons["이어서 하기"].identifier
         firstRow.buttons["이어서 하기"].tap()
         XCTAssertTrue(app.navigationBars["실행 중"].waitForExistence(timeout: 5))
@@ -127,6 +131,7 @@ final class ExecutionUITests: XCTestCase {
         reveal(secondRow, in: app)
         XCTAssertEqual(secondRow.buttons["옮기기"].identifier, secondID)
         reveal(firstRow, in: app, upward: false)
+        if !firstRow.exists || !firstRow.buttons["옮기기"].isHittable { reveal(firstRow, in: app) }
         XCTAssertEqual(firstRow.buttons["옮기기"].identifier, firstID)
         XCTAssertTrue(firstRow.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "실행 중")).firstMatch.exists)
         app.tabBars.buttons["오늘"].tap()
