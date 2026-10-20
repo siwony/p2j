@@ -25,7 +25,8 @@ final class RecordsUITests: XCTestCase {
         reveal(row, in: app)
         XCTAssertEqual(row.identifier, recordID)
         XCTAssertTrue(row.staticTexts["0분 기록"].exists)
-        row.tap()
+        row.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.5)).tap()
+        XCTAssertTrue(app.navigationBars["실행 기록"].waitForExistence(timeout: 5))
         let now = Date(), calendar = Calendar(identifier: .gregorian)
         let weekday = (calendar.component(.weekday, from: now) + 5) % 7 + 1
         let priorSunday = try XCTUnwrap(calendar.date(byAdding: .day, value: -weekday, to: now))

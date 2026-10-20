@@ -65,6 +65,8 @@ struct RecordsView: View {
                                             Text("날짜를 옮겨 마침").font(.footnote).foregroundStyle(DesignTokens.textSecondary)
                                         }
                                     }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain).accessibilityIdentifier("records.row.\(record.id)")
                                 .accessibilityHint("실행 기록 편집").accessibilityFocused($focused, equals: .row(record.id))
