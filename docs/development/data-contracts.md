@@ -60,8 +60,9 @@ ExecutionRecorder는 앱 수명의 MainActor 명령 소유자다. start/pause/co
 
 ## #11 알림 저장·응답 계약
 
-결정: [ADR 0004](../adr/0004-local-notifications-and-reconciliation.md). 기존 SwiftData V4·동결 모델은 유지한다. 알림 설정/재알림/예약 세대/응답 receipt는 버전형 단일 원자 JSON에 저장하고, 대기/재시도는 영속 의도와 실제 OS 상태로 재계산한다. 파일 읽기·쓰기 실패와 미지원 버전은 별도 오류이며 초기값으로 덮어쓰거나 기존 OS 예약을 일괄 취소하지 않는다.
+결정: [ADR 0004](../adr/0004-local-notifications-and-reconciliation.md). 기존 SwiftData V4·동결 모델은 유지한다. 알림 설정/재알림/예약 세대/응답 receipt/회차별 기본 알림 checkpoint는 버전형 단일 원자 JSON에 저장하고, 대기/재시도는 영속 의도와 실제 OS 상태로 재계산한다. 파일 읽기·쓰기 실패와 미지원 버전은 별도 오류이며 초기값으로 덮어쓰거나 기존 OS 예약을 일괄 취소하지 않는다.
 
+- 기본 알림 checkpoint는 회차별 현재 civil 날짜/자체 시각·상태·해석 instant·종료/소비 근거를 저장하며 예약 예산·receipt128 정리와 분리한다. 지난/소비 알림은 시간대·타이머 pause·완료 취소·기본 시각 변경만으로 다시 열지 않는다. 실제 날짜/자체 시각 변경 또는 관측된 skip→restore만 해제한다. 구버전은 남은 normal 또는 현재 대상과 정확히 일치하는 미래 snooze의 소비 근거를 사용하되 snooze 시각·세대를 normal 값으로 전용하지 않는다.
 - 저장 성공 신호 뒤 현재 DB·설정으로 재조정한다. 실패한 앱 명령은 OS 호출을 만들지 않는다. 메모/수행일-only 등 동일 예약 projection은 반복 OS 쓰기를 만들지 않는다. 직렬 drain도 await 후 최신 세대를 확인해 OFF·이동·완료 뒤 오래된 요청을 남기지 않는다.
 - request ID와 콘텐츠 세대를 분리한다. 원래 회차 ID·계획 날짜·수정시각/실행 revision으로 현재 유효성을 재검증한다. 중복 응답이나 receipt/앱 저장 사이 중단을 최신 snapshot의 자동 재실행으로 복구하지 않는다. 모호하면 명시적 재시도로 남긴다.
 - #45: 현재 열린 원래 route/ticket 전체가 일치하면, 재조정으로 제거된 세대의 유효한 원래 대상만 명시적으로 시작한다. 세대 부재는 이미 저장된 응답 거절 근거이며 재열기에서 옛 응답을 되살리지 않는다. 남아 있는 원래 세대의 receipt 저장 실패 처리는 유지하고, 새 세대의 예약·receipt를 대신 소비하지 않는다.
@@ -69,7 +70,9 @@ ExecutionRecorder는 앱 수명의 MainActor 명령 소유자다. start/pause/co
 - 실제 pending을 확인해 가까운 미래·계획 슬롯·재알림 여유를 배정한다. 64 이하의 보수 예산이며 현대 OS 상한 보장은 아니다. OS add 실패/비동기 remove/readback 차이는 별도 대기·재시도이며 앱 기록을 되돌리지 않는다. pending 존재는 전달 성공을 뜻하지 않는다.
 - 응답은 store/router 준비 후 처리한다. 편집/확인 중이면 현재 초안·탭·날짜를 유지하고 사용자가 나중에 명시적으로 연다. 편집/확인 중이 아니면 같은 세대를 포함한 명시적 본문 열기는 새 presentation ID로 이전 읽기 화면을 교체한다. 새 요청이 무효면 이전 화면을 유지하고, 편집 종료만으로 대기 요청을 열지 않는다. 계획 알림은 현재 주 Records, 단일/묶음은 Today의 명시적 원래 대상 목록을 사용한다. 시작은 기존 단일 실행 명령·교체 확인을 재사용하며 본문 탭은 자동 시작하지 않는다.
 
-didSave는 동결 입력의 네이티브 선검증 후 채택했다. 기존 writer는 수정하지 않으며 관측 callback에서 container identity만 비교하고 context/Notification을 actor 경계로 넘기지 않는다. 실제 검증/미검증·실행 환경·결과는 #11 구현 PR에 기록한다. 실기기 전달·Focus·iOS 17 실행·전체 접근성은 #13에서 인수한다.
+didSave는 동결 입력의 네이티브 선검증 후 채택했다. 기존 writer는 수정하지 않는다. 같은 container의 posting context에서 회차 엔터티·persistent ID를 확인하고 성공 전이의 원시 값과 관측 Date/시간대만 순서대로 복사한다. context/모델/Notification은 actor 경계를 넘기지 않는다. 첫 OS await 전에 전체 회차와 FIFO prefix를 원자 JSON에 확정하고 성공한 prefix만 제거한다. 지난 기본 알림의 실제 시작 성공도 선택 대상만 같은 FIFO로 보존해 receipt 완료와 함께 확정하며 새 세대 receipt·C는 소비하지 않는다. 파일 실패에는 FIFO를 유지하고 이후 await 뒤 세대와 대기 이벤트를 확인한다. 실제 검증/미검증·실행 환경·결과는 #11 구현 PR에 기록한다. 실기기 전달·Focus·iOS 17 실행·전체 접근성은 #13에서 인수한다.
+
+앱 DB와 알림 JSON은 하나의 transaction이 아니다. 같은 프로세스 retry는 성공 전이를 보존하지만 JSON에 저장되기 전 프로세스 종료로 사라진 중간 전이와 완전히 소실된 구버전 이력은 복원할 수 없다. 이미 영속화된 skipped 근거는 재실행 복원에 사용하며, 누락된 복원은 실제 날짜/시각 변경 또는 새 관측 skip→restore로 다시 맞춘다. 같은 값 재저장은 no-op이다. 상세 조건은 ADR 0004를 따른다.
 
 ## 병렬 기술 조사에서 확정한 경계
 

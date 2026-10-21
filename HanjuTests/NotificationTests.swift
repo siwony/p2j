@@ -7,6 +7,20 @@ import XCTest
 final class NotificationTests: XCTestCase {
     private let day = LocalDate(year: 2026, month: 10, day: 25)!
     private enum Failure: Error { case disk, os }
+    final class EventClock: @unchecked Sendable {
+        private let lock = NSLock()
+        private var sample: NotificationEventTime
+        init(_ instant: Date, zone: TimeZone = .gmt) { sample = .init(instant: instant, timeZoneID: zone.identifier) }
+        func read() -> NotificationEventTime { lock.lock(); defer { lock.unlock() }; return sample }
+        var instant: Date {
+            get { read().instant }
+            set { lock.lock(); defer { lock.unlock() }; sample = .init(instant: newValue, timeZoneID: sample.timeZoneID) }
+        }
+        var zone: TimeZone {
+            get { TimeZone(identifier: read().timeZoneID)! }
+            set { lock.lock(); defer { lock.unlock() }; sample = .init(instant: sample.instant, timeZoneID: newValue.identifier) }
+        }
+    }
     @MainActor final class Client: NotificationClient {
         var authorization: NotificationSystemSnapshot.Authorization = .authorized
         var pending: [NotificationSystemSnapshot.Request] = []
@@ -70,19 +84,19 @@ final class NotificationTests: XCTestCase {
     func testPlanGroupsUntimedAndUsesFutureBudgetWithoutExpandingSnooze() throws {
         let (_, sources) = try fixture(count: 70, timed: false)
         var state = NotificationPersistentState(); state.preferences = preferences()
-        var result = NotificationPlan.make(sources: sources, state: state, now: instant, timeZone: .gmt, foreignPending: 0)
+        var result = try NotificationPlan.make(sources: sources, state: state, now: instant, timeZone: .gmt, foreignPending: 0)
         XCTAssertEqual(result.count, 1); XCTAssertEqual(result[0].targets.count, 70); XCTAssertEqual(result[0].kind, .group)
         state.preferences.executionMinutes = nil
-        XCTAssertTrue(NotificationPlan.make(sources: sources, state: state, now: instant, timeZone: .gmt, foreignPending: 0).isEmpty)
+        XCTAssertTrue(try NotificationPlan.make(sources: sources, state: state, now: instant, timeZone: .gmt, foreignPending: 0).isEmpty)
         let (timedContainer, timed) = try fixture(count: 70)
         state.preferences = preferences()
-        result = NotificationPlan.make(sources: timed, state: state, now: instant, timeZone: .gmt, foreignPending: 3)
+        result = try NotificationPlan.make(sources: timed, state: state, now: instant, timeZone: .gmt, foreignPending: 3)
         XCTAssertEqual(result.count, 53) // 64 minus 3 foreign minus 8 snooze reserve.
         XCTAssertTrue(result.allSatisfy { $0.dueAt > instant })
         let nearer = timed.last!
         try PlanWriter.move(nearer.occurrence, to: day, time: LocalTime(hour: 22, minute: 30), in: timedContainer.mainContext)
         let updated = try timed.map { try ExecutionWriter.snapshot($0.id, in: ModelContext(timedContainer)) }
-        let prioritized = NotificationPlan.make(sources: updated, state: state, now: instant, timeZone: .gmt, foreignPending: 3)
+        let prioritized = try NotificationPlan.make(sources: updated, state: state, now: instant, timeZone: .gmt, foreignPending: 3)
         XCTAssertEqual(prioritized.first?.targets.first?.id, nearer.id, "Nearer future work must precede later normal requests")
     }
     func testDSTAndTimeZoneReconcileUsesCivilPlanAndResolvedInstant() throws {
@@ -95,15 +109,15 @@ final class NotificationTests: XCTestCase {
         XCTAssertNotNil(autumn.explanation)
         let (_, sources) = try fixture()
         var state = NotificationPersistentState(); state.preferences = preferences()
-        let original = NotificationPlan.make(sources: sources, state: state, now: instant.addingTimeInterval(-86400), timeZone: .gmt, foreignPending: 0)
+        let original = try NotificationPlan.make(sources: sources, state: state, now: instant.addingTimeInterval(-86400), timeZone: .gmt, foreignPending: 0)
         state.tickets = original
-        let changed = NotificationPlan.make(sources: sources, state: state, now: instant.addingTimeInterval(-86400), timeZone: zone, foreignPending: 0)
+        let changed = try NotificationPlan.make(sources: sources, state: state, now: instant.addingTimeInterval(-86400), timeZone: zone, foreignPending: 0)
         XCTAssertEqual(changed[0].targets[0].dayKey, original[0].targets[0].dayKey)
         XCTAssertNotEqual(changed[0].dueAt, original[0].dueAt); XCTAssertNotEqual(changed[0].generation, original[0].generation)
     }
     func testNoLaunchPromptIndependentTogglesAndPersistenceFailureCallsNoOS() async throws {
         let (container, _) = try fixture(); let client = Client(); let disk = store()
-        let coordinator = NotificationCoordinator(store: disk, client: client, now: { self.instant }, timeZone: { .gmt })
+        let coordinator = NotificationCoordinator(store: disk, client: client, now: { self.instant }, timeZone: { .gmt }, captureEventTime: { [instant = instant] in .init(instant: instant, timeZoneID: "GMT") })
         coordinator.attach(container: container, recorder: ExecutionRecorder(container: container)); await idle(coordinator)
         XCTAssertEqual(client.prompts, 0); XCTAssertEqual(client.adds, 0)
         await coordinator.updatePreferences(preferences(), requestPermission: true); await idle(coordinator)
@@ -115,7 +129,7 @@ final class NotificationTests: XCTestCase {
         XCTAssertEqual(client.pending.map(\.id), ["hanju.planning"])
         var failedDisk = store(); failedDisk.write = { _, _ in throw Failure.disk }
         let failedClient = Client()
-        let failed = NotificationCoordinator(store: failedDisk, client: failedClient, now: { self.instant })
+        let failed = NotificationCoordinator(store: failedDisk, client: failedClient, now: { self.instant }, captureEventTime: { [instant = instant] in .init(instant: instant, timeZoneID: "GMT") })
         failed.attach(container: container, recorder: ExecutionRecorder(container: container)); await idle(failed)
         let reads = failedClient.reads
         await failed.updatePreferences(preferences(), requestPermission: true)
@@ -124,24 +138,24 @@ final class NotificationTests: XCTestCase {
     }
     func testSnoozeCrossesSundayMidnightFixedOnRetryAndDuplicateRejectedAfterReopen() async throws {
         let (container, sources) = try fixture(count: 2, timed: false); let disk = store(); let client = Client()
-        var now = instant
-        let coordinator = NotificationCoordinator(store: disk, client: client, now: { now }, timeZone: { .gmt })
+        let clock = EventClock(instant)
+        let coordinator = NotificationCoordinator(store: disk, client: client, now: { clock.instant }, timeZone: { .gmt }, captureEventTime: { clock.read() })
         coordinator.attach(container: container, recorder: ExecutionRecorder(container: container)); await idle(coordinator)
         await coordinator.updatePreferences(preferences()); await idle(coordinator)
         let original = try XCTUnwrap(coordinator.state.tickets.first)
-        now = original.dueAt
+        clock.instant = original.dueAt
         let response = NotificationEnvelope(requestID: original.id, generation: original.generation, action: .snooze)
         coordinator.acceptSnooze(response); await idle(coordinator)
         let snooze = try XCTUnwrap(coordinator.state.tickets.first(where: { $0.kind == .snooze }))
         XCTAssertEqual(LocalDate(snooze.dueAt, timeZone: .gmt), day.adding(days: 1))
         XCTAssertEqual(snooze.targets.map(\.id), original.targets.map(\.id))
         XCTAssertTrue(snooze.targets.allSatisfy { $0.dayKey == day.key })
-        now = now.addingTimeInterval(60); client.failAdd = true; client.pending = []
+        clock.instant = clock.instant.addingTimeInterval(60); client.failAdd = true; client.pending = []
         coordinator.retry(); await idle(coordinator)
         XCTAssertEqual(coordinator.state.tickets.first(where: { $0.kind == .snooze })?.dueAt, snooze.dueAt)
         coordinator.acceptSnooze(response); await idle(coordinator)
         XCTAssertEqual(coordinator.state.tickets.filter { $0.kind == .snooze }.count, 1)
-        let reopened = NotificationCoordinator(store: disk, client: Client(), now: { now }, timeZone: { .gmt })
+        let reopened = NotificationCoordinator(store: disk, client: Client(), now: { clock.instant }, timeZone: { .gmt }, captureEventTime: { clock.read() })
         reopened.attach(container: container, recorder: ExecutionRecorder(container: container)); await idle(reopened)
         reopened.acceptSnooze(response); await idle(reopened)
         XCTAssertEqual(reopened.state.tickets.filter { $0.kind == .snooze }.count, 1)
@@ -153,7 +167,7 @@ final class NotificationTests: XCTestCase {
         let coordinator = NotificationCoordinator(store: store(), client: client, startCommand: { source, replacing in
             try ExecutionWriter.start(source, replacing: replacing, at: ExecutionClock.now(), in: container.mainContext,
                 save: { _ in saveCalled = true; throw Failure.disk })
-        }, now: { self.instant }, timeZone: { .gmt })
+        }, now: { self.instant }, timeZone: { .gmt }, captureEventTime: { [instant = instant] in .init(instant: instant, timeZoneID: "GMT") })
         coordinator.attach(container: container, recorder: ExecutionRecorder(container: container)); await idle(coordinator)
         await coordinator.updatePreferences(preferences()); await idle(coordinator)
         let ticket = try XCTUnwrap(coordinator.state.tickets.first)
@@ -172,7 +186,7 @@ final class NotificationTests: XCTestCase {
     func testDeferredResponsePreservesPresentationAndGroupChoiceVersions() async throws {
         let (container, sources) = try fixture(count: 2, timed: false); let client = Client()
         let recorder = ExecutionRecorder(container: container)
-        let coordinator = NotificationCoordinator(store: store(), client: client, now: { self.instant }, timeZone: { .gmt })
+        let coordinator = NotificationCoordinator(store: store(), client: client, now: { self.instant }, timeZone: { .gmt }, captureEventTime: { [instant = instant] in .init(instant: instant, timeZoneID: "GMT") })
         coordinator.attach(container: container, recorder: recorder); await idle(coordinator)
         await coordinator.updatePreferences(preferences()); await idle(coordinator)
         let ticket = try XCTUnwrap(coordinator.state.tickets.first)
@@ -192,7 +206,7 @@ final class NotificationTests: XCTestCase {
     func testOpenedGroupStartsUnchangedOriginalTargetAfterReconciliation() async throws {
         let (container, sources) = try fixture(count: 2, timed: false)
         let recorder = ExecutionRecorder(container: container), client = Client()
-        let coordinator = NotificationCoordinator(store: store(), client: client, now: { self.instant }, timeZone: { .gmt })
+        let coordinator = NotificationCoordinator(store: store(), client: client, now: { self.instant }, timeZone: { .gmt }, captureEventTime: { [instant = instant] in .init(instant: instant, timeZoneID: "GMT") })
         coordinator.attach(container: container, recorder: recorder); await idle(coordinator)
         await coordinator.updatePreferences(preferences()); await idle(coordinator)
         let original = try XCTUnwrap(coordinator.state.tickets.first { $0.kind == .group })
@@ -213,18 +227,18 @@ final class NotificationTests: XCTestCase {
             for change in ["complete", "move", "skip"] {
                 let (container, sources) = try fixture(count: 2, timed: false)
                 let disk = store(), client = Client(), recorder = ExecutionRecorder(container: container)
-                var now = instant
-                let coordinator = NotificationCoordinator(store: disk, client: client, now: { now }, timeZone: { .gmt })
+                let clock = EventClock(instant)
+                let coordinator = NotificationCoordinator(store: disk, client: client, now: { clock.instant }, timeZone: { .gmt }, captureEventTime: { clock.read() })
                 coordinator.attach(container: container, recorder: recorder); await idle(coordinator)
                 await coordinator.updatePreferences(preferences()); await idle(coordinator)
                 var original = try XCTUnwrap(coordinator.state.tickets.first { $0.kind == .group })
                 if snoozed {
-                    now = original.dueAt
+                    clock.instant = original.dueAt
                     coordinator.acceptSnooze(.init(requestID: original.id, generation: original.generation, action: .snooze))
                     await idle(coordinator)
                     original = try XCTUnwrap(coordinator.state.tickets.first { $0.kind == .snooze })
-                    now = original.dueAt // Sunday's group is opened on Monday, still with Sunday's IDs/day.
-                    XCTAssertEqual(LocalDate(now, timeZone: .gmt), day.adding(days: 1))
+                    clock.instant = original.dueAt // Sunday's group is opened on Monday, still with Sunday's IDs/day.
+                    XCTAssertEqual(LocalDate(clock.instant, timeZone: .gmt), day.adding(days: 1))
                 }
                 let envelope = NotificationEnvelope(requestID: original.id, generation: original.generation, action: .open)
                 coordinator.accept(envelope)
@@ -249,7 +263,7 @@ final class NotificationTests: XCTestCase {
                 XCTAssertThrowsError(try coordinator.start(sources[1].id, from: forged), "A route UUID cannot authorize a replacement ticket")
                 let persisted = try disk.load()
                 XCTAssertFalse(persisted.tickets.contains { $0.generation == original.generation })
-                let reopened = NotificationCoordinator(store: disk, client: Client(), now: { now }, timeZone: { .gmt })
+                let reopened = NotificationCoordinator(store: disk, client: Client(), now: { clock.instant }, timeZone: { .gmt }, captureEventTime: { clock.read() })
                 reopened.attach(container: container, recorder: recorder); await idle(reopened)
                 reopened.accept(envelope)
                 XCTAssertNil(reopened.route); XCTAssertNil(recorder.active)
@@ -277,7 +291,7 @@ final class NotificationTests: XCTestCase {
     func testRetiredRouteRejectsChangedTargetAndKeepsRunningOnUnconfirmedSwitch() async throws {
         let (container, sources) = try fixture(count: 3, timed: false)
         let recorder = ExecutionRecorder(container: container), client = Client()
-        let coordinator = NotificationCoordinator(store: store(), client: client, now: { self.instant }, timeZone: { .gmt })
+        let coordinator = NotificationCoordinator(store: store(), client: client, now: { self.instant }, timeZone: { .gmt }, captureEventTime: { [instant = instant] in .init(instant: instant, timeZoneID: "GMT") })
         coordinator.attach(container: container, recorder: recorder); await idle(coordinator)
         await coordinator.updatePreferences(preferences()); await idle(coordinator)
         let original = try XCTUnwrap(coordinator.state.tickets.first)
@@ -309,7 +323,7 @@ final class NotificationTests: XCTestCase {
             try ExecutionWriter.start(source, replacing: replacing, at: ExecutionClock.now(), in: container.mainContext,
                 save: { context in saveCalls += 1; if fail { throw Failure.disk }; try context.save() })
             recorder.refresh()
-        }, now: { self.instant }, timeZone: { .gmt })
+        }, now: { self.instant }, timeZone: { .gmt }, captureEventTime: { [instant = instant] in .init(instant: instant, timeZoneID: "GMT") })
         coordinator.attach(container: container, recorder: recorder); await idle(coordinator)
         await coordinator.updatePreferences(preferences()); await idle(coordinator)
         let original = try XCTUnwrap(coordinator.state.tickets.first)
@@ -342,7 +356,7 @@ final class NotificationTests: XCTestCase {
         }
         let client = Client(), recorder = ExecutionRecorder(container: container)
         let coordinator = NotificationCoordinator(store: disk, client: client, startCommand: { _, _ in starts += 1 },
-                                                   now: { self.instant }, timeZone: { .gmt })
+                                                   now: { self.instant }, timeZone: { .gmt }, captureEventTime: { [instant = instant] in .init(instant: instant, timeZoneID: "GMT") })
         coordinator.attach(container: container, recorder: recorder); await idle(coordinator)
         await coordinator.updatePreferences(preferences()); await idle(coordinator)
         let original = try XCTUnwrap(coordinator.state.tickets.first)
@@ -359,7 +373,7 @@ final class NotificationTests: XCTestCase {
     }
     func testChangeDuringOSAddDrainsAndRemovesObsoleteRequest() async throws {
         let (container, sources) = try fixture(); let client = Client()
-        let coordinator = NotificationCoordinator(store: store(), client: client, now: { self.instant }, timeZone: { .gmt })
+        let coordinator = NotificationCoordinator(store: store(), client: client, now: { self.instant }, timeZone: { .gmt }, captureEventTime: { [instant = instant] in .init(instant: instant, timeZoneID: "GMT") })
         coordinator.attach(container: container, recorder: ExecutionRecorder(container: container)); await idle(coordinator)
         client.beforeAdd = {
             try? PlanWriter.skip(sources[0].occurrence, in: container.mainContext)
@@ -372,7 +386,7 @@ final class NotificationTests: XCTestCase {
     }
     func testForegroundSuppressionUsesGenerationDBAndActuallyVisibleTargets() async throws {
         let (container, sources) = try fixture(); let client = Client()
-        let coordinator = NotificationCoordinator(store: store(), client: client, now: { self.instant }, timeZone: { .gmt })
+        let coordinator = NotificationCoordinator(store: store(), client: client, now: { self.instant }, timeZone: { .gmt }, captureEventTime: { [instant = instant] in .init(instant: instant, timeZoneID: "GMT") })
         let recorder = ExecutionRecorder(container: container)
         coordinator.attach(container: container, recorder: recorder); await idle(coordinator)
         await coordinator.updatePreferences(preferences()); await idle(coordinator)
@@ -389,9 +403,9 @@ final class NotificationTests: XCTestCase {
         let context = container.mainContext
         // One original normal, one grouped untimed and one snoozed request.
         try PlanWriter.move(initial[1].occurrence, to: day, time: nil, in: context)
-        var now = instant
+        let clock = EventClock(instant)
         let disk = store(), client = Client(), recorder = ExecutionRecorder(container: container)
-        let coordinator = NotificationCoordinator(store: disk, client: client, now: { now }, timeZone: { .gmt })
+        let coordinator = NotificationCoordinator(store: disk, client: client, now: { clock.instant }, timeZone: { .gmt }, captureEventTime: { clock.read() })
         coordinator.attach(container: container, recorder: recorder); await idle(coordinator)
         var prefs = preferences(); prefs.planningEnabled = true
         await coordinator.updatePreferences(prefs); await idle(coordinator)
@@ -430,7 +444,7 @@ final class NotificationTests: XCTestCase {
         try PlanWriter.move(second.occurrence, to: past, time: nil, restore: true, in: context)
         let source = try recorder.read(second.id)
         try PlanWriter.replan([source.occurrence], to: day, today: day, in: context)
-        now = instant.addingTimeInterval(60)
+        clock.instant = instant.addingTimeInterval(60)
         coordinator.requestReconcile(); await idle(coordinator)
         XCTAssertTrue(client.pending.contains { $0.id == "hanju.group.\(day.key)" })
         XCTAssertFalse(coordinator.state.tickets.contains { $0.kind == .snooze })
@@ -439,11 +453,11 @@ final class NotificationTests: XCTestCase {
     func testAcceptedReceiptReopenNeverAutomaticallyStartsOrRefreshesExpectedVersion() async throws {
         let (container, sources) = try fixture(); let disk = store()
         var state = NotificationPersistentState(); state.preferences = preferences()
-        state.tickets = NotificationPlan.make(sources: sources, state: state, now: instant, timeZone: .gmt, foreignPending: 0)
+        state.tickets = try NotificationPlan.make(sources: sources, state: state, now: instant, timeZone: .gmt, foreignPending: 0)
         state.tickets[0].accepted = true; try disk.save(state)
         let original = state.tickets[0]
         let recorder = ExecutionRecorder(container: container)
-        let coordinator = NotificationCoordinator(store: disk, client: Client(), now: { self.instant }, timeZone: { .gmt })
+        let coordinator = NotificationCoordinator(store: disk, client: Client(), now: { self.instant }, timeZone: { .gmt }, captureEventTime: { [instant = instant] in .init(instant: instant, timeZoneID: "GMT") })
         coordinator.attach(container: container, recorder: recorder); await idle(coordinator)
         coordinator.accept(.init(requestID: original.id, generation: original.generation, action: .start))
         XCTAssertNil(coordinator.route); XCTAssertNil(recorder.active)
@@ -457,7 +471,7 @@ final class NotificationTests: XCTestCase {
     func testCapacityAndMissingTimeAreVisibleWaitingStatesAndForeignRequestsStay() async throws {
         let (container, _) = try fixture(count: 70)
         let client = Client(); client.pending = (0..<3).map { .init(id: "foreign.\($0)", generation: nil) }
-        let coordinator = NotificationCoordinator(store: store(), client: client, now: { self.instant }, timeZone: { .gmt })
+        let coordinator = NotificationCoordinator(store: store(), client: client, now: { self.instant }, timeZone: { .gmt }, captureEventTime: { [instant = instant] in .init(instant: instant, timeZoneID: "GMT") })
         coordinator.attach(container: container, recorder: ExecutionRecorder(container: container)); await idle(coordinator)
         var prefs = preferences(); prefs.planningEnabled = true
         await coordinator.updatePreferences(prefs); await idle(coordinator)
@@ -465,13 +479,13 @@ final class NotificationTests: XCTestCase {
         XCTAssertEqual(coordinator.waitingForCapacity, 18) // 70 minus 52 normal slots, with planning + 8 reserved.
         XCTAssertEqual(client.pending.count, 56)
         let (untimedContainer, _) = try fixture(count: 2, timed: false)
-        let untimed = NotificationCoordinator(store: store(), client: Client(), now: { self.instant }, timeZone: { .gmt })
+        let untimed = NotificationCoordinator(store: store(), client: Client(), now: { self.instant }, timeZone: { .gmt }, captureEventTime: { [instant = instant] in .init(instant: instant, timeZoneID: "GMT") })
         untimed.attach(container: untimedContainer, recorder: ExecutionRecorder(container: untimedContainer)); await idle(untimed)
         prefs.executionMinutes = nil
         await untimed.updatePreferences(prefs); await idle(untimed)
         XCTAssertEqual(untimed.waitingForTime, 2)
         let fullClient = Client(); fullClient.pending = (0..<64).map { .init(id: "foreign.\($0)", generation: nil) }
-        let planningOnly = NotificationCoordinator(store: store(), client: fullClient, now: { self.instant }, timeZone: { .gmt })
+        let planningOnly = NotificationCoordinator(store: store(), client: fullClient, now: { self.instant }, timeZone: { .gmt }, captureEventTime: { [instant = instant] in .init(instant: instant, timeZoneID: "GMT") })
         planningOnly.attach(container: container, recorder: ExecutionRecorder(container: container)); await idle(planningOnly)
         var planning = NotificationPreferences(); planning.planningEnabled = true
         await planningOnly.updatePreferences(planning); await idle(planningOnly)
@@ -488,11 +502,11 @@ final class NotificationTests: XCTestCase {
         }
         let sources = try container.mainContext.fetch(FetchDescriptor<PlannedOccurrence>()).map { try ExecutionWriter.snapshot($0.id, in: container.mainContext) }
         let disk = store(); var state = NotificationPersistentState(); state.preferences = preferences()
-        state.tickets = NotificationPlan.make(sources: sources, state: state, now: instant, timeZone: .gmt, foreignPending: 0)
+        state.tickets = try NotificationPlan.make(sources: sources, state: state, now: instant, timeZone: .gmt, foreignPending: 0)
         XCTAssertEqual(state.tickets.first?.targets.count, 513)
         try disk.save(state); XCTAssertEqual(try disk.load(), state)
         var failedDisk = store(); failedDisk.write = { _, _ in throw Failure.disk }
-        let coordinator = NotificationCoordinator(store: failedDisk, client: Client(), now: { self.instant })
+        let coordinator = NotificationCoordinator(store: failedDisk, client: Client(), now: { self.instant }, captureEventTime: { [instant = instant] in .init(instant: instant, timeZoneID: "GMT") })
         coordinator.attach(container: container, recorder: ExecutionRecorder(container: container)); await idle(coordinator)
         var draft = preferences(); draft.executionMinutes = 17 * 60 + 35
         let saved = await coordinator.updatePreferences(draft)
@@ -504,7 +518,7 @@ final class NotificationTests: XCTestCase {
     func testNinthSnoozeUsesNormalCapacityAndSurvivesForeignCapacityLossAndReopen() async throws {
         let (container, _) = try fixture(count: 70)
         let disk = store(), client = Client()
-        let coordinator = NotificationCoordinator(store: disk, client: client, now: { self.instant }, timeZone: { .gmt })
+        let coordinator = NotificationCoordinator(store: disk, client: client, now: { self.instant }, timeZone: { .gmt }, captureEventTime: { [instant = instant] in .init(instant: instant, timeZoneID: "GMT") })
         coordinator.attach(container: container, recorder: ExecutionRecorder(container: container)); await idle(coordinator)
         var prefs = preferences(); prefs.planningEnabled = true
         await coordinator.updatePreferences(prefs); await idle(coordinator)
@@ -523,7 +537,7 @@ final class NotificationTests: XCTestCase {
         coordinator.requestReconcile(); await idle(coordinator)
         XCTAssertEqual(coordinator.state.tickets.filter { $0.kind == .snooze && !$0.consumed }, accepted)
         XCTAssertGreaterThan(coordinator.waitingForCapacity, 0)
-        let reopened = NotificationCoordinator(store: disk, client: client, now: { self.instant }, timeZone: { .gmt })
+        let reopened = NotificationCoordinator(store: disk, client: client, now: { self.instant }, timeZone: { .gmt }, captureEventTime: { [instant = instant] in .init(instant: instant, timeZoneID: "GMT") })
         reopened.attach(container: container, recorder: ExecutionRecorder(container: container)); await idle(reopened)
         XCTAssertEqual(reopened.state.tickets.filter { $0.kind == .snooze && !$0.consumed }, accepted)
         reopened.acceptSnooze(.init(requestID: normals[0].id, generation: normals[0].generation, action: .snooze))
@@ -532,7 +546,7 @@ final class NotificationTests: XCTestCase {
 
     func testSnoozeIntentIsDurableBeforeSuspendedOSReadAndKeepsFixedDueAt() async throws {
         let (container, _) = try fixture(); let disk = store(), client = Client()
-        let coordinator = NotificationCoordinator(store: disk, client: client, now: { self.instant }, timeZone: { .gmt })
+        let coordinator = NotificationCoordinator(store: disk, client: client, now: { self.instant }, timeZone: { .gmt }, captureEventTime: { [instant = instant] in .init(instant: instant, timeZoneID: "GMT") })
         coordinator.attach(container: container, recorder: ExecutionRecorder(container: container)); await idle(coordinator)
         await coordinator.updatePreferences(preferences()); await idle(coordinator)
         let original = try XCTUnwrap(coordinator.state.tickets.first)
@@ -557,7 +571,7 @@ final class NotificationTests: XCTestCase {
     func testRepeatedBodyOpenCreatesNewPresentationWithoutStarting() async throws {
         let (container, sources) = try fixture()
         let recorder = ExecutionRecorder(container: container)
-        let coordinator = NotificationCoordinator(store: store(), client: Client(), now: { self.instant }, timeZone: { .gmt })
+        let coordinator = NotificationCoordinator(store: store(), client: Client(), now: { self.instant }, timeZone: { .gmt }, captureEventTime: { [instant = instant] in .init(instant: instant, timeZoneID: "GMT") })
         coordinator.attach(container: container, recorder: recorder); await idle(coordinator)
         await coordinator.updatePreferences(preferences()); await idle(coordinator)
         let ticket = try XCTUnwrap(coordinator.state.tickets.first)
@@ -573,7 +587,7 @@ final class NotificationTests: XCTestCase {
     func testPendingOpenReplacesOldViewOnlyAfterEditorEndsAndExplicitOpen() async throws {
         let (container, sources) = try fixture(count: 2)
         let recorder = ExecutionRecorder(container: container)
-        let coordinator = NotificationCoordinator(store: store(), client: Client(), now: { self.instant }, timeZone: { .gmt })
+        let coordinator = NotificationCoordinator(store: store(), client: Client(), now: { self.instant }, timeZone: { .gmt }, captureEventTime: { [instant = instant] in .init(instant: instant, timeZoneID: "GMT") })
         coordinator.attach(container: container, recorder: recorder); await idle(coordinator)
         await coordinator.updatePreferences(preferences()); await idle(coordinator)
         let firstTicket = try XCTUnwrap(coordinator.state.tickets.first { $0.targets.first?.id == sources[0].id })
@@ -596,7 +610,7 @@ final class NotificationTests: XCTestCase {
     func testNewBodyReplacesReadOnlyRouteButInvalidResponsePreservesIt() async throws {
         let (container, sources) = try fixture(count: 2)
         let recorder = ExecutionRecorder(container: container)
-        let coordinator = NotificationCoordinator(store: store(), client: Client(), now: { self.instant }, timeZone: { .gmt })
+        let coordinator = NotificationCoordinator(store: store(), client: Client(), now: { self.instant }, timeZone: { .gmt }, captureEventTime: { [instant = instant] in .init(instant: instant, timeZoneID: "GMT") })
         coordinator.attach(container: container, recorder: recorder); await idle(coordinator)
         await coordinator.updatePreferences(preferences()); await idle(coordinator)
         let a = try XCTUnwrap(coordinator.state.tickets.first { $0.targets.first?.id == sources[0].id })
@@ -619,7 +633,7 @@ final class NotificationTests: XCTestCase {
     func testBodyReopeningDoesNotReplayStartOrBypassMultiplePresentationBlockers() async throws {
         let (container, sources) = try fixture(count: 2)
         let recorder = ExecutionRecorder(container: container)
-        let coordinator = NotificationCoordinator(store: store(), client: Client(), now: { self.instant }, timeZone: { .gmt })
+        let coordinator = NotificationCoordinator(store: store(), client: Client(), now: { self.instant }, timeZone: { .gmt }, captureEventTime: { [instant = instant] in .init(instant: instant, timeZoneID: "GMT") })
         coordinator.attach(container: container, recorder: recorder); await idle(coordinator)
         await coordinator.updatePreferences(preferences()); await idle(coordinator)
         let a = try XCTUnwrap(coordinator.state.tickets.first { $0.targets.first?.id == sources[0].id })
@@ -653,6 +667,385 @@ final class NotificationTests: XCTestCase {
         coordinator.dismissRoute()
         XCTAssertFalse(coordinator.deferred, "Duplicate queued body requests must not create a second pending presentation")
         await idle(coordinator)
+    }
+
+    func testPastConsumedDefaultDoesNotReviveWestwardAfterSnooze() throws {
+        let (_, sources) = try fixture()
+        let seoul = TimeZone(identifier: "Asia/Seoul")!
+        let due = sources[0].occurrence.time!.resolve(on: day, in: seoul)!.instant
+        var state = NotificationPersistentState(); state.preferences = preferences()
+        state.tickets = try NotificationPlan.make(sources: sources, state: state, now: due.addingTimeInterval(-60), timeZone: seoul, foreignPending: 0)
+        XCTAssertEqual(state.tickets.count, 1)
+        state.tickets[0].consumed = true
+        let original = state.tickets[0]
+        state.tickets.append(NotificationTicket(id: "hanju.snooze.original", generation: UUID(), kind: .snooze,
+            targets: original.targets, dueAt: due.addingTimeInterval(1800), weekday: nil, minutes: nil,
+            timeZoneID: seoul.identifier, explanation: nil))
+        let result = try NotificationPlan.make(sources: sources, state: state, now: due.addingTimeInterval(300), timeZone: .gmt, foreignPending: 0)
+        XCTAssertFalse(result.contains { $0.kind == .single && !$0.consumed && $0.dueAt > due })
+        XCTAssertEqual(result.first { $0.kind == .snooze }?.dueAt, due.addingTimeInterval(1800))
+    }
+    func testCheckpointSurvivesReceiptEvictionGroupNewMemberAndDiskReopen() throws {
+        let (container, first) = try fixture(count: 100, timed: false)
+        for count in [100, 100, 100, 100, 13] {
+            let entries = (0..<count).map { _ in PlanDraft.Entry(routineID: first[0].occurrence.routineID,
+                name: "Checkpoint history", expectedMinutes: nil, firstAction: nil, day: day) }
+            try PlanWriter.confirm(.init(week: day.monday, entries: entries), in: container.mainContext)
+        }
+        let sources = try container.mainContext.fetch(FetchDescriptor<PlannedOccurrence>()).map { try ExecutionWriter.snapshot($0.id, in: container.mainContext) }
+        let seoul = TimeZone(identifier: "Asia/Seoul")!
+        let due = LocalTime(minutes: preferences().executionMinutes!)!.resolve(on: day, in: seoul)!.instant
+        var state = NotificationPersistentState(); state.preferences = preferences()
+        state.normalCheckpoints = try NotificationPlan.checkpoints(sources: sources, state: state, now: due.addingTimeInterval(-60), timeZone: seoul)
+        state.normalCheckpoints = try NotificationPlan.checkpoints(sources: sources, state: state, now: due.addingTimeInterval(60), timeZone: .gmt)
+        state.tickets = [] // The bounded receipt history no longer contains the original generation.
+        let disk = store(); try disk.save(state); state = try disk.load()
+        XCTAssertEqual(state.normalCheckpoints.count, 513)
+        XCTAssertTrue(state.normalCheckpoints.allSatisfy(\.terminal))
+        XCTAssertTrue(try NotificationPlan.make(sources: sources, state: state, now: due.addingTimeInterval(60), timeZone: .gmt, foreignPending: 0).isEmpty)
+        let entry = PlanDraft.Entry(routineID: sources[0].occurrence.routineID, name: "Independent C", expectedMinutes: nil, firstAction: nil, day: day)
+        try PlanWriter.confirm(.init(week: day.monday, entries: [entry]), in: container.mainContext)
+        let added = try ExecutionWriter.snapshot(entry.id, in: container.mainContext)
+        let result = try NotificationPlan.make(sources: sources + [added], state: state, now: due.addingTimeInterval(60), timeZone: .gmt, foreignPending: 0)
+        XCTAssertEqual(result.first?.targets.map(\.id), [entry.id])
+        XCTAssertEqual(try NotificationPlan.waitingCount(sources: sources, state: state, now: due.addingTimeInterval(60), timeZone: .gmt), 0)
+    }
+
+    func testCheckpointLegacyMissingOnlyAndNullCorruptionRejected() throws {
+        let (_, sources) = try fixture()
+        var state = NotificationPersistentState(); state.preferences = preferences()
+        state.normalCheckpoints = try NotificationPlan.checkpoints(sources: sources, state: state, now: instant, timeZone: .gmt)
+        let disk = store(); try disk.save(state)
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: disk.url)) as? [String: Any])
+        object.removeValue(forKey: "normalCheckpoints")
+        try JSONSerialization.data(withJSONObject: object).write(to: disk.url)
+        XCTAssertEqual(try disk.load().normalCheckpoints, [])
+        object["normalCheckpoints"] = NSNull()
+        try JSONSerialization.data(withJSONObject: object).write(to: disk.url)
+        XCTAssertThrowsError(try disk.load())
+        object["normalCheckpoints"] = ["broken"]
+        try JSONSerialization.data(withJSONObject: object).write(to: disk.url)
+        XCTAssertThrowsError(try disk.load())
+        state.normalCheckpoints.append(state.normalCheckpoints[0])
+        XCTAssertThrowsError(try disk.save(state))
+    }
+
+    func testCheckpointTimerUndoDoesNotResetButCivilMoveAndRestoreDo() throws {
+        let (_, sources) = try fixture()
+        let civil = NotificationCivil(sources[0]), clock = EventClock(instant)
+        var state = NotificationPersistentState(); state.preferences = preferences()
+        state.normalCheckpoints = [.init(civil: civil, resolvedDue: instant.addingTimeInterval(-60), terminal: true)]
+        func row(_ status: String, minutes: Int? = nil, dayKey: Int? = nil) -> NotificationCivil {
+            .init(id: civil.id, dayKey: dayKey ?? civil.dayKey, ownMinutes: minutes ?? civil.ownMinutes, status: status)
+        }
+        let timerEvents = ["running", "paused", "completed", "planned"].map {
+            NotificationSaveEvent(time: clock.read(), rows: [row($0)], valid: true)
+        }
+        state.normalCheckpoints = try NotificationPlan.checkpoints(sources: sources, state: state, events: timerEvents, now: instant, timeZone: .gmt)
+        XCTAssertTrue(state.normalCheckpoints[0].terminal)
+        let restore = ["skipped", "planned"].map { NotificationSaveEvent(time: clock.read(), rows: [row($0)], valid: true) }
+        state.normalCheckpoints = try NotificationPlan.checkpoints(sources: sources, state: state, events: restore, now: instant, timeZone: .gmt)
+        XCTAssertFalse(state.normalCheckpoints[0].terminal)
+        state.normalCheckpoints[0].terminal = true
+        let moves = [civil.dayKey + 1, civil.dayKey].map {
+            NotificationSaveEvent(time: clock.read(), rows: [row("planned", dayKey: $0)], valid: true)
+        }
+        state.normalCheckpoints = try NotificationPlan.checkpoints(sources: sources, state: state, events: moves, now: instant, timeZone: .gmt)
+        XCTAssertFalse(state.normalCheckpoints[0].terminal)
+        state.normalCheckpoints[0].terminal = true
+        state.preferences.executionMinutes = 60
+        XCTAssertTrue(try NotificationPlan.checkpoints(sources: sources, state: state, now: instant, timeZone: .gmt)[0].terminal)
+    }
+
+    func testCheckpointsPersistBeforeFirstSuspendedOSReadIncludingBudgetExcludedSources() async throws {
+        let (container, sources) = try fixture(count: 70)
+        let due = sources[0].occurrence.time!.resolve(on: day, in: TimeZone(identifier: "Asia/Seoul")!)!.instant
+        let clock = EventClock(due.addingTimeInterval(-60), zone: TimeZone(identifier: "Asia/Seoul")!)
+        let disk = store(); var initial = NotificationPersistentState(); initial.preferences = preferences(); try disk.save(initial)
+        let client = Client()
+        client.beforeSnapshot = {
+            let persisted = try? disk.load()
+            XCTAssertEqual(persisted?.normalCheckpoints.count, 70)
+            clock.instant = due.addingTimeInterval(60); clock.zone = .gmt
+        }
+        let coordinator = NotificationCoordinator(store: disk, client: client, now: { clock.instant }, timeZone: { clock.zone }, captureEventTime: { clock.read() })
+        coordinator.attach(container: container, recorder: ExecutionRecorder(container: container)); await idle(coordinator)
+        coordinator.requestReconcile(); await idle(coordinator)
+        XCTAssertEqual(coordinator.state.normalCheckpoints.count, 70)
+        XCTAssertTrue(coordinator.state.normalCheckpoints.allSatisfy(\.terminal))
+        XCTAssertTrue(client.pending.isEmpty)
+    }
+
+    func testPostingTimeSurvivesTaskDelayAndJSONFailureKeepsRestoreFIFO() async throws {
+        let (container, initial) = try fixture()
+        let clock = EventClock(instant), client = Client(); let disk = store()
+        var fail = false, writable = disk
+        writable.write = { data, url in if fail { throw Failure.disk }; try data.write(to: url, options: .atomic) }
+        let coordinator = NotificationCoordinator(store: writable, client: client, now: { clock.instant }, timeZone: { clock.zone }, captureEventTime: { clock.read() })
+        let recorder = ExecutionRecorder(container: container)
+        coordinator.attach(container: container, recorder: recorder); await idle(coordinator)
+        await coordinator.updatePreferences(preferences()); await idle(coordinator)
+        let original = try XCTUnwrap(coordinator.state.tickets.first)
+        coordinator.acceptSnooze(.init(requestID: original.id, generation: original.generation, action: .snooze)); await idle(coordinator)
+        XCTAssertTrue(coordinator.state.normalCheckpoints[0].terminal)
+        let before = try Data(contentsOf: disk.url), pending = client.pending, adds = client.adds, removes = client.removes
+        fail = true
+        try PlanWriter.skip(try recorder.read(initial[0].id).occurrence, in: container.mainContext)
+        try PlanWriter.move(try recorder.read(initial[0].id).occurrence, to: day, time: initial[0].occurrence.time, restore: true, in: container.mainContext)
+        coordinator.requestReconcile(); await idle(coordinator)
+        XCTAssertEqual(try Data(contentsOf: disk.url), before)
+        XCTAssertEqual(client.pending, pending); XCTAssertEqual(client.adds, adds); XCTAssertEqual(client.removes, removes)
+        fail = false; coordinator.retry(); await idle(coordinator)
+        XCTAssertFalse(coordinator.state.normalCheckpoints[0].terminal)
+        XCTAssertTrue(client.pending.contains { $0.id == original.id })
+        // Two successful civil changes before the callback tasks run must not collapse to no change.
+        coordinator.acceptSnooze(.init(requestID: original.id, generation: try XCTUnwrap(coordinator.state.tickets.first { $0.id == original.id }).generation, action: .snooze)); await idle(coordinator)
+        try PlanWriter.move(try recorder.read(initial[0].id).occurrence, to: day.adding(days: 1), time: initial[0].occurrence.time, in: container.mainContext)
+        try PlanWriter.move(try recorder.read(initial[0].id).occurrence, to: day, time: initial[0].occurrence.time, in: container.mainContext)
+        coordinator.requestReconcile(); await idle(coordinator)
+        XCTAssertFalse(coordinator.state.normalCheckpoints[0].terminal)
+        // A newly saved civil time is already past in Seoul, but future if reinterpreted after Task delay.
+        clock.instant = LocalTime(hour: 15, minute: 0)!.resolve(on: day, in: .gmt)!.instant
+        clock.zone = TimeZone(identifier: "Asia/Seoul")!
+        let entry = PlanDraft.Entry(routineID: initial[0].occurrence.routineID, name: "Posting timezone", expectedMinutes: nil, firstAction: nil, day: day, time: LocalTime(hour: 23, minute: 50))
+        try PlanWriter.confirm(.init(week: day.monday, entries: [entry]), in: container.mainContext)
+        clock.zone = .gmt // no await between save and timezone change
+        coordinator.requestReconcile(); await idle(coordinator)
+        XCTAssertTrue(try XCTUnwrap(coordinator.state.normalCheckpoints.first { $0.civil.id == entry.id }).terminal)
+        XCTAssertFalse(client.pending.contains { $0.id == "hanju.single.\(entry.id)" })
+    }
+
+    func testPersistedSkipAllowsRecoveryButLostTransitionsDoNotInventReset() throws {
+        let (_, sources) = try fixture()
+        let civil = NotificationCivil(sources[0]), disk = store()
+        var state = NotificationPersistentState(); state.preferences = preferences()
+        state.normalCheckpoints = [.init(civil: civil, resolvedDue: instant.addingTimeInterval(-60), terminal: true)]
+        try disk.save(state)
+        var reopened = try disk.load()
+        reopened.normalCheckpoints = try NotificationPlan.checkpoints(sources: sources, state: reopened, now: instant, timeZone: .gmt)
+        XCTAssertTrue(reopened.normalCheckpoints[0].terminal, "unpersisted skip+restore cannot be invented on restart")
+        state.normalCheckpoints[0].civil = .init(id: civil.id, dayKey: civil.dayKey, ownMinutes: civil.ownMinutes, status: "skipped")
+        try disk.save(state); reopened = try disk.load()
+        reopened.normalCheckpoints = try NotificationPlan.checkpoints(sources: sources, state: reopened, now: instant, timeZone: .gmt)
+        XCTAssertFalse(reopened.normalCheckpoints[0].terminal)
+    }
+    func testLegacyFutureSnoozeSeedsTerminalWithoutOriginalNormalReceipt() throws {
+        for timed in [true, false] {
+            for hasRevivedNormal in [false, true] {
+                let (container, originals) = try fixture(timed: timed)
+                let source = originals[0]
+                let seoul = TimeZone(identifier: "Asia/Seoul")!
+                let due = LocalTime(minutes: preferences().executionMinutes!)!.resolve(on: day, in: seoul)!.instant
+                let now = due.addingTimeInterval(300)
+                var state = NotificationPersistentState(); state.preferences = preferences()
+                let original = try XCTUnwrap(NotificationPlan.make(sources: originals, state: state,
+                    now: due.addingTimeInterval(-60), timeZone: seoul, foreignPending: 0).first)
+                let snooze = NotificationTicket(id: "hanju.snooze.legacy-survivor", generation: UUID(), kind: .snooze,
+                    targets: original.targets, dueAt: due.addingTimeInterval(1800), weekday: nil, minutes: nil,
+                    timeZoneID: seoul.identifier, explanation: nil)
+                // A buggy legacy pass may already have added a new future normal alongside the snooze.
+                state.tickets = hasRevivedNormal ? try NotificationPlan.make(sources: originals, state: state,
+                    now: now, timeZone: .gmt, foreignPending: 0) : []
+                state.tickets.append(snooze)
+                let disk = store(); try disk.save(state)
+                var json = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: disk.url)) as? [String: Any])
+                json.removeValue(forKey: "normalCheckpoints")
+                let legacyBytes = try JSONSerialization.data(withJSONObject: json)
+                try legacyBytes.write(to: disk.url)
+                state = try disk.load()
+                XCTAssertTrue(state.normalCheckpoints.isEmpty)
+                let entry = PlanDraft.Entry(routineID: source.occurrence.routineID, name: "Independent legacy C",
+                    expectedMinutes: nil, firstAction: nil, day: day,
+                    time: timed ? LocalTime(minutes: preferences().executionMinutes!) : nil)
+                try PlanWriter.confirm(.init(week: day.monday, entries: [entry]), in: container.mainContext)
+                let added = try ExecutionWriter.snapshot(entry.id, in: container.mainContext)
+                let current = originals + [added]
+                state.normalCheckpoints = try NotificationPlan.checkpoints(sources: current, state: state, now: now, timeZone: .gmt)
+                let point = try XCTUnwrap(state.normalCheckpoints.first { $0.civil.id == source.id })
+                XCTAssertTrue(point.terminal, "Exact future snooze proves the original normal was consumed")
+                XCTAssertNil(point.lastConsumedGeneration, "Do not invent the missing normal generation")
+                XCTAssertNotEqual(point.resolvedDue, snooze.dueAt, "Snooze time is not the normal civil due")
+                state.tickets = try NotificationPlan.make(sources: current, state: state, now: now, timeZone: .gmt, foreignPending: 0)
+                let normals = state.tickets.filter { [.single, .group].contains($0.kind) && !$0.consumed && $0.dueAt > now }
+                XCTAssertEqual(Set(normals.flatMap { $0.targets.map(\.id) }), [entry.id])
+                XCTAssertEqual(state.tickets.first { $0.kind == .snooze }?.generation, snooze.generation)
+                XCTAssertEqual(state.tickets.first { $0.kind == .snooze }?.dueAt, snooze.dueAt)
+                try disk.save(state); state = try disk.load()
+                let again = try NotificationPlan.make(sources: current, state: state, now: now, timeZone: .gmt, foreignPending: 0)
+                XCTAssertEqual(Set(again.filter { [.single, .group].contains($0.kind) && !$0.consumed && $0.dueAt > now }
+                    .flatMap { $0.targets.map(\.id) }), [entry.id])
+                XCTAssertEqual(again.first { $0.kind == .snooze }?.generation, snooze.generation)
+                XCTAssertEqual(again.first { $0.kind == .snooze }?.dueAt, snooze.dueAt)
+
+                // A real civil change invalidates the original target version, so its snooze must not suppress a new plan.
+                try PlanWriter.move(source.occurrence, to: day.adding(days: 1), time: source.occurrence.time, in: container.mainContext)
+                let moved = try ExecutionWriter.snapshot(source.id, in: container.mainContext)
+                try legacyBytes.write(to: disk.url)
+                let stale = try disk.load()
+                let fresh = try NotificationPlan.make(sources: [moved, added], state: stale, now: now, timeZone: .gmt, foreignPending: 0)
+                XCTAssertEqual(Set(fresh.filter { [.single, .group].contains($0.kind) && !$0.consumed && $0.dueAt > now }
+                    .flatMap { $0.targets.map(\.id) }), [source.id, entry.id])
+                XCTAssertFalse(fresh.contains { $0.kind == .snooze })
+            }
+        }
+    }
+
+    func testLegacyMissingCheckpointDSTGapNeverRevivesConsumedOrUnansweredDefault() throws {
+        let gapDay = LocalDate(year: 2026, month: 3, day: 8)!
+        let civilTime = LocalTime(hour: 2, minute: 30)!
+        let losAngeles = TimeZone(identifier: "America/Los_Angeles")!
+        let honolulu = TimeZone(identifier: "Pacific/Honolulu")!
+        let due = civilTime.resolve(on: gapDay, in: losAngeles)!.instant
+        let now = LocalTime(hour: 10, minute: 5)!.resolve(on: gapDay, in: .gmt)!.instant
+        XCTAssertEqual(due, LocalTime(hour: 10, minute: 0)!.resolve(on: gapDay, in: .gmt)!.instant)
+        XCTAssertEqual(civilTime.resolve(on: gapDay, in: honolulu)!.instant,
+                       LocalTime(hour: 12, minute: 30)!.resolve(on: gapDay, in: .gmt)!.instant)
+        for consumed in [false, true] {
+            let container = try PersistenceStore.makeContainer(inMemory: true)
+            let routine = RoutineTemplate(name: "Legacy DST original")
+            container.mainContext.insert(routine); try container.mainContext.save()
+            let entry = PlanDraft.Entry(routineID: routine.id, name: "Gap 02:30", expectedMinutes: nil, firstAction: nil, day: gapDay, time: civilTime)
+            try PlanWriter.confirm(.init(week: gapDay.monday, entries: [entry]), in: container.mainContext)
+            let original = try ExecutionWriter.snapshot(entry.id, in: container.mainContext)
+            var state = NotificationPersistentState(); state.preferences.executionEnabled = true
+            state.tickets = try NotificationPlan.make(sources: [original], state: state, now: due.addingTimeInterval(-60), timeZone: losAngeles, foreignPending: 0)
+            state.tickets[0].consumed = consumed
+            let snooze = NotificationTicket(id: "hanju.snooze.legacy-dst", generation: UUID(), kind: .snooze,
+                targets: state.tickets[0].targets, dueAt: now.addingTimeInterval(1800), weekday: nil, minutes: nil,
+                timeZoneID: losAngeles.identifier, explanation: nil)
+            if consumed { state.tickets.append(snooze) }
+            let disk = store(); try disk.save(state)
+            var json = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: disk.url)) as? [String: Any])
+            json.removeValue(forKey: "normalCheckpoints")
+            try JSONSerialization.data(withJSONObject: json).write(to: disk.url)
+            state = try disk.load()
+            XCTAssertTrue(state.normalCheckpoints.isEmpty)
+            state.normalCheckpoints = try NotificationPlan.checkpoints(sources: [original], state: state, now: now, timeZone: honolulu)
+            state.tickets = try NotificationPlan.make(sources: [original], state: state, now: now, timeZone: honolulu, foreignPending: 0)
+            XCTAssertTrue(state.normalCheckpoints[0].terminal, "Legacy nextTime evidence must survive timezone change")
+            XCTAssertFalse(state.tickets.contains { $0.kind == .single && !$0.consumed && $0.dueAt > now })
+            try disk.save(state); state = try disk.load()
+            let again = try NotificationPlan.make(sources: [original], state: state, now: now, timeZone: honolulu, foreignPending: 0)
+            XCTAssertFalse(again.contains { $0.kind == .single && !$0.consumed && $0.dueAt > now })
+            if consumed {
+                XCTAssertEqual(again.first { $0.kind == .snooze }?.dueAt, snooze.dueAt)
+                XCTAssertEqual(again.first { $0.kind == .snooze }?.generation, snooze.generation)
+            }
+            try PlanWriter.move(original.occurrence, to: gapDay.adding(days: 1), time: civilTime, in: container.mainContext)
+            let moved = try ExecutionWriter.snapshot(entry.id, in: container.mainContext)
+            let fresh = try NotificationPlan.make(sources: [moved], state: state, now: now, timeZone: honolulu, foreignPending: 0)
+            XCTAssertTrue(fresh.contains { $0.kind == .single && !$0.consumed && $0.dueAt > now })
+        }
+    }
+    func testSnoozeAcceptedWhileSnapshotSuspendsUsesOriginalCivilConsumptionEvidence() async throws {
+        for timed in [true, false] {
+            let (container, originals) = try fixture(timed: timed)
+            let seoul = TimeZone(identifier: "Asia/Seoul")!
+            let dueTime = LocalTime(hour: 9, minute: 0)!
+            if timed { try PlanWriter.move(originals[0].occurrence, to: day, time: dueTime, in: container.mainContext) }
+            let due = dueTime.resolve(on: day, in: seoul)!.instant
+            let clock = EventClock(due.addingTimeInterval(-60), zone: seoul)
+            let client = Client(), disk = store()
+            var state = NotificationPersistentState(); state.preferences = preferences(); state.preferences.executionMinutes = dueTime.minutes
+            try disk.save(state)
+            let coordinator = NotificationCoordinator(store: disk, client: client, now: { clock.instant }, timeZone: { clock.zone }, captureEventTime: { clock.read() })
+            coordinator.attach(container: container, recorder: ExecutionRecorder(container: container)); await idle(coordinator)
+            let original = try XCTUnwrap(coordinator.state.tickets.first { $0.kind == (timed ? .single : .group) })
+            XCTAssertEqual(original.dueAt, due)
+            clock.zone = .gmt
+            var acceptedDuringSnapshot = false
+            client.beforeSnapshot = {
+                XCTAssertEqual(coordinator.state.normalCheckpoints[0].resolvedDue, dueTime.resolve(on: self.day, in: .gmt)!.instant)
+                await Task.yield() // The original OS read is suspended after checkpoint persistence.
+                clock.instant = due
+                coordinator.acceptSnooze(.init(requestID: original.id, generation: original.generation, action: .snooze))
+                acceptedDuringSnapshot = true
+            }
+            coordinator.requestReconcile(); await idle(coordinator)
+            XCTAssertTrue(acceptedDuringSnapshot)
+            XCTAssertTrue(coordinator.state.normalCheckpoints[0].terminal)
+            XCTAssertFalse(client.pending.contains { $0.id == original.id })
+            let snooze = try XCTUnwrap(coordinator.state.tickets.first { $0.kind == .snooze })
+            XCTAssertEqual(snooze.dueAt, due.addingTimeInterval(1800))
+            let reopened = NotificationCoordinator(store: disk, client: Client(), now: { clock.instant }, timeZone: { clock.zone }, captureEventTime: { clock.read() })
+            reopened.attach(container: container, recorder: ExecutionRecorder(container: container)); await idle(reopened)
+            XCTAssertTrue(reopened.state.normalCheckpoints[0].terminal)
+            XCTAssertFalse(reopened.state.tickets.contains { $0.id == original.id && !$0.consumed && $0.dueAt > clock.instant })
+        }
+    }
+    func testStartedPastRetiredRouteStaysTerminalAfterPauseWithoutConsumingNewGroup() async throws {
+        for timed in [true, false] {
+            let (container, originalSources) = try fixture(count: timed ? 1 : 2, timed: timed)
+            let dueTime = LocalTime(hour: 9, minute: 0)!, seoul = TimeZone(identifier: "Asia/Seoul")!
+            if timed { try PlanWriter.move(originalSources[0].occurrence, to: day, time: dueTime, in: container.mainContext) }
+            let due = dueTime.resolve(on: day, in: seoul)!.instant
+            let clock = EventClock(due.addingTimeInterval(-60), zone: seoul), client = Client(), disk = store()
+            var state = NotificationPersistentState(); state.preferences = preferences(); state.preferences.executionMinutes = dueTime.minutes
+            try disk.save(state)
+            let recorder = ExecutionRecorder(container: container)
+            var failExecution = false, failFile = false, saveCalls = 0
+            var writable = disk
+            writable.write = { data, url in if failFile { throw Failure.disk }; try data.write(to: url, options: .atomic) }
+            let coordinator = NotificationCoordinator(store: writable, client: client, startCommand: { source, replacing in
+                try ExecutionWriter.start(source, replacing: replacing, at: ExecutionClock.now(), in: container.mainContext,
+                    save: { context in saveCalls += 1; if failExecution { throw Failure.disk }; try context.save() })
+                recorder.refresh()
+            }, now: { clock.instant }, timeZone: { clock.zone }, captureEventTime: { clock.read() })
+            coordinator.attach(container: container, recorder: recorder); await idle(coordinator)
+            let old = try XCTUnwrap(coordinator.state.tickets.first { $0.kind == (timed ? .single : .group) })
+            clock.zone = .gmt
+            client.beforeSnapshot = {
+                XCTAssertEqual(coordinator.state.normalCheckpoints[0].resolvedDue, dueTime.resolve(on: self.day, in: .gmt)!.instant)
+                await Task.yield()
+                clock.instant = due.addingTimeInterval(60)
+                coordinator.accept(.init(requestID: old.id, generation: old.generation, action: .open))
+            }
+            coordinator.requestReconcile(); await idle(coordinator)
+            let route = try XCTUnwrap(coordinator.route)
+            XCTAssertEqual(route.ticket.generation, old.generation)
+            XCTAssertFalse(coordinator.state.tickets.contains { $0.generation == old.generation })
+            var newID: UUID?
+            if !timed {
+                let entry = PlanDraft.Entry(routineID: originalSources[0].occurrence.routineID, name: "Independent C after open", expectedMinutes: nil, firstAction: nil, day: day)
+                try PlanWriter.confirm(.init(week: day.monday, entries: [entry]), in: container.mainContext)
+                newID = entry.id; coordinator.requestReconcile(); await idle(coordinator)
+                XCTAssertThrowsError(try coordinator.start(entry.id, from: route))
+            }
+            let selected = originalSources.last!.id
+            failExecution = true
+            let failurePending = client.pending
+            XCTAssertThrowsError(try coordinator.start(selected, from: route)) { error in
+                guard case Failure.disk = error else { return XCTFail("Wrong execution error: \(error)") }
+            }
+            XCTAssertEqual(saveCalls, 1)
+            XCTAssertFalse(try XCTUnwrap(coordinator.state.normalCheckpoints.first { $0.civil.id == selected }).terminal)
+            XCTAssertEqual(client.pending, failurePending)
+            failExecution = false
+            if let newID {
+                try recorder.start(try recorder.read(newID)); coordinator.requestReconcile(); await idle(coordinator)
+                XCTAssertThrowsError(try coordinator.start(selected, from: route))
+                XCTAssertFalse(try XCTUnwrap(coordinator.state.normalCheckpoints.first { $0.civil.id == selected }).terminal)
+                XCTAssertEqual(recorder.active?.id, newID)
+                try recorder.pause(try recorder.read(newID)); coordinator.requestReconcile(); await idle(coordinator)
+            }
+            let beforeSuccessfulStart = try Data(contentsOf: disk.url), pendingBeforeFileFailure = client.pending
+            failFile = true
+            try coordinator.start(selected, from: route); await idle(coordinator)
+            XCTAssertEqual(try recorder.read(selected).occurrence.status, .running)
+            XCTAssertTrue(coordinator.needsRetry)
+            XCTAssertEqual(try Data(contentsOf: disk.url), beforeSuccessfulStart)
+            XCTAssertEqual(client.pending, pendingBeforeFileFailure)
+            failFile = false; coordinator.retry(); await idle(coordinator)
+            XCTAssertTrue(try XCTUnwrap(coordinator.state.normalCheckpoints.first { $0.civil.id == selected }).terminal)
+            try recorder.pause(try recorder.read(selected)); coordinator.requestReconcile(); await idle(coordinator)
+            XCTAssertTrue(try XCTUnwrap(coordinator.state.normalCheckpoints.first { $0.civil.id == selected }).terminal)
+            XCTAssertFalse(coordinator.state.tickets.contains { !$0.consumed && $0.dueAt > clock.instant && $0.targets.contains { $0.id == selected } })
+            if let newID {
+                XCTAssertTrue(coordinator.state.tickets.contains { !$0.consumed && !$0.accepted && $0.targets.contains { $0.id == newID } })
+                XCTAssertFalse(try XCTUnwrap(coordinator.state.normalCheckpoints.first { $0.civil.id == newID }).terminal)
+            }
+            XCTAssertFalse(coordinator.state.tickets.contains { $0.generation == old.generation })
+        }
     }
 
 }

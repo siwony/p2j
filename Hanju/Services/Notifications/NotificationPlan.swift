@@ -62,10 +62,64 @@ struct NotificationRoute: Identifiable, Equatable {
     let action: NotificationEnvelope.Action
 }
 
+struct NotificationEventTime: Sendable {
+    let instant: Date
+    let timeZoneID: String
+}
+
+struct NotificationCivil: Codable, Equatable, Sendable {
+    let id: UUID
+    let dayKey: Int
+    let ownMinutes: Int?
+    let status: String
+    init(_ source: ExecutionSnapshot) {
+        id = source.id; dayKey = source.occurrence.day.key
+        ownMinutes = source.occurrence.time?.minutes; status = source.occurrence.status.rawValue
+    }
+    init(id: UUID, dayKey: Int, ownMinutes: Int?, status: String) {
+        self.id = id; self.dayKey = dayKey; self.ownMinutes = ownMinutes; self.status = status
+    }
+    var isValid: Bool {
+        LocalDate(key: dayKey) != nil && (ownMinutes == nil || LocalTime(minutes: ownMinutes!) != nil) &&
+        ["planned", "running", "paused", "completed", "skipped"].contains(status)
+    }
+}
+
+struct NotificationCheckpoint: Codable, Equatable {
+    var civil: NotificationCivil
+    var resolvedDue: Date?
+    var terminal: Bool
+    var lastConsumedGeneration: UUID? = nil
+}
+
+struct NotificationStartedNormal: Sendable {
+    let civil: NotificationCivil
+    let generation: UUID
+}
+
+struct NotificationSaveEvent: Sendable {
+    let time: NotificationEventTime
+    let rows: [NotificationCivil]
+    let valid: Bool
+    var startedNormal: NotificationStartedNormal? = nil
+}
+
 struct NotificationPersistentState: Codable, Equatable {
     var formatVersion = 1
     var preferences = NotificationPreferences()
     var tickets: [NotificationTicket] = []
+    var normalCheckpoints: [NotificationCheckpoint] = []
+    init() {}
+    private enum CodingKeys: String, CodingKey { case formatVersion, preferences, tickets, normalCheckpoints }
+    init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        formatVersion = try values.decode(Int.self, forKey: .formatVersion)
+        preferences = try values.decode(NotificationPreferences.self, forKey: .preferences)
+        tickets = try values.decode([NotificationTicket].self, forKey: .tickets)
+        // Only absent v1 data is legacy; explicit null or corrupt checkpoints remain errors.
+        normalCheckpoints = values.contains(.normalCheckpoints)
+            ? try values.decode([NotificationCheckpoint].self, forKey: .normalCheckpoints) : []
+    }
 }
 
 /// Produces intent only. The coordinator persists generations before calling the OS.
@@ -74,10 +128,81 @@ enum NotificationPlan {
     static let budget = 64
     static let snoozeReserve = 8
 
+    static func matchesCivil(_ ticket: NotificationTicket, _ civil: NotificationCivil) -> Bool {
+        let kind: NotificationTicket.Kind = civil.ownMinutes == nil ? .group : .single
+        let id = prefix + (civil.ownMinutes == nil ? "group.\(civil.dayKey)" : "single.\(civil.id)")
+        guard ticket.kind == kind, ticket.id == id,
+              ticket.targets.contains(where: { $0.id == civil.id && $0.dayKey == civil.dayKey }) else { return false }
+        guard let minutes = civil.ownMinutes else { return true } // A default-time change is not a new civil plan.
+        guard let day = LocalDate(key: civil.dayKey), let zone = TimeZone(identifier: ticket.timeZoneID) else { return false }
+        // Resolve the original civil time, including DST gaps; its displayed hour may have shifted.
+        return LocalTime(minutes: minutes)?.resolve(on: day, in: zone)?.instant == ticket.dueAt
+    }
+
+    static func checkpoints(sources: [ExecutionSnapshot], state: NotificationPersistentState,
+                            events: [NotificationSaveEvent] = [], now: Date, timeZone: TimeZone) throws -> [NotificationCheckpoint] {
+        var points = Dictionary(uniqueKeysWithValues: state.normalCheckpoints.map { ($0.civil.id, $0) })
+        let currentSources = Dictionary(uniqueKeysWithValues: sources.map { ($0.id, $0) })
+        func apply(_ civil: NotificationCivil, at instant: Date, zone: TimeZone) throws {
+            guard civil.isValid, instant.timeIntervalSince1970.isFinite else { throw NotificationFailure.state }
+            var point = points[civil.id]
+            if point == nil {
+                // Legacy receipts are evidence only when their original civil time still matches.
+                let evidence = state.tickets.first { matchesCivil($0, civil) }
+                // A surviving snooze proves consumption even when the bounded normal receipt was evicted.
+                // Its fixed due time and generation are not evidence of the original normal's due or generation.
+                let snoozed = currentSources[civil.id].map { source in
+                    let current = NotificationCivil(source)
+                    return current.dayKey == civil.dayKey && current.ownMinutes == civil.ownMinutes &&
+                        state.tickets.contains { ticket in
+                            ticket.kind == .snooze && !ticket.consumed && ticket.dueAt > instant &&
+                                ticket.targets.contains { $0.matches(source) }
+                        }
+                } ?? false
+                point = .init(civil: civil, resolvedDue: evidence?.dueAt,
+                              terminal: (evidence.map { $0.consumed || $0.dueAt <= instant } ?? false) || snoozed,
+                              lastConsumedGeneration: evidence?.consumed == true ? evidence?.generation : nil)
+            }
+            var current = point!
+            if let due = current.resolvedDue, due <= instant { current.terminal = true }
+            if let consumed = state.tickets.first(where: { ticket in
+                ticket.consumed && ticket.generation != current.lastConsumedGeneration && matchesCivil(ticket, current.civil)
+            }) { current.terminal = true; current.lastConsumedGeneration = consumed.generation }
+            let moved = current.civil.dayKey != civil.dayKey || current.civil.ownMinutes != civil.ownMinutes
+            let restored = current.civil.status == "skipped" && ["planned", "paused"].contains(civil.status)
+            if moved || restored { current.terminal = false; current.resolvedDue = nil }
+            current.civil = civil
+            if !current.terminal, let day = LocalDate(key: civil.dayKey),
+               let minutes = civil.ownMinutes ?? state.preferences.executionMinutes,
+               let resolved = LocalTime(minutes: minutes)?.resolve(on: day, in: zone) {
+                current.resolvedDue = resolved.instant
+                current.terminal = resolved.instant <= instant
+            }
+            points[civil.id] = current
+        }
+        for event in events {
+            guard event.valid, let zone = TimeZone(identifier: event.time.timeZoneID) else { throw NotificationFailure.state }
+            for row in event.rows { try apply(row, at: event.time.instant, zone: zone) }
+            if let started = event.startedNormal {
+                if points[started.civil.id] == nil { try apply(started.civil, at: event.time.instant, zone: zone) }
+                if var point = points[started.civil.id], point.civil.dayKey == started.civil.dayKey,
+                   point.civil.ownMinutes == started.civil.ownMinutes {
+                    point.terminal = true; point.lastConsumedGeneration = started.generation
+                    points[started.civil.id] = point
+                }
+            }
+        }
+        for source in sources { try apply(NotificationCivil(source), at: now, zone: timeZone) }
+        let currentIDs = Set(sources.map(\.id))
+        return points.values.filter { currentIDs.contains($0.civil.id) }.sorted { $0.civil.id.uuidString < $1.civil.id.uuidString }
+    }
+
     static func make(sources: [ExecutionSnapshot], state: NotificationPersistentState,
-                     now: Date, timeZone: TimeZone, foreignPending: Int) -> [NotificationTicket] {
+                     now: Date, timeZone: TimeZone, foreignPending: Int) throws -> [NotificationTicket] {
         let preferences = state.preferences
-        let eligible = sources.filter { $0.occurrence.canReplan }.sorted { $0.id.uuidString < $1.id.uuidString }
+        let points = try checkpoints(sources: sources, state: state, now: now, timeZone: timeZone)
+        let terminal = Set(points.filter(\.terminal).map { $0.civil.id })
+        let eligible = sources.filter { $0.occurrence.canReplan && !terminal.contains($0.id) }.sorted { $0.id.uuidString < $1.id.uuidString }
         var candidates: [NotificationTicket] = []
         if preferences.executionEnabled {
             var groups: [Int: [ExecutionSnapshot]] = [:]
@@ -109,7 +234,7 @@ enum NotificationPlan {
         }
         // A consumed delivered generation stays consumed while its unchanged schedule is retained.
         candidates = candidates.compactMap { fresh in
-            let old = state.tickets.first { $0.id == fresh.id && $0.sameSchedule(as: fresh) }
+            let old = state.tickets.first { $0.id == fresh.id && !$0.consumed && $0.sameSchedule(as: fresh) }
             guard fresh.dueAt > now || old != nil else { return nil }
             return old ?? fresh
         }
@@ -128,16 +253,23 @@ enum NotificationPlan {
         let future = candidates.filter { !$0.isPlanning && $0.dueAt > now && !$0.consumed }
             .sorted { $0.dueAt == $1.dueAt ? $0.id < $1.id : $0.dueAt < $1.dueAt }
         // Past generations are response receipts, not new OS requests. Keep storage bounded.
-        let past = (candidates + snoozes).filter { !$0.isPlanning && ($0.dueAt <= now || $0.consumed) }
+        let newIDs = Set((candidates + snoozes).map(\.id))
+        let history = state.tickets.filter { old in
+            (old.kind == .single || old.kind == .group) && !newIDs.contains(old.id) &&
+            !old.targets.isEmpty && old.targets.allSatisfy { target in sourceByID[target.id].map(target.matches) == true }
+        }
+        let past = (candidates + snoozes + history).filter { !$0.isPlanning && ($0.dueAt <= now || $0.consumed) }
             .sorted { $0.dueAt > $1.dueAt }.prefix(128)
         return planning + selectedSnoozes + Array(future.prefix(normalLimit)) + past
     }
 
-    static func waitingCount(sources: [ExecutionSnapshot], state: NotificationPersistentState, now: Date, timeZone: TimeZone) -> Int {
+    static func waitingCount(sources: [ExecutionSnapshot], state: NotificationPersistentState, now: Date, timeZone: TimeZone) throws -> Int {
         let planningWaiting = state.preferences.planningEnabled && !state.tickets.contains(where: \.isPlanning) ? 1 : 0
         guard state.preferences.executionEnabled else { return planningWaiting }
         var future = Set<String>()
-        for source in sources where source.occurrence.canReplan {
+        let points = try checkpoints(sources: sources, state: state, now: now, timeZone: timeZone)
+        let terminal = Set(points.filter(\.terminal).map { $0.civil.id })
+        for source in sources where source.occurrence.canReplan && !terminal.contains(source.id) {
             let row = source.occurrence
             guard let time = row.time ?? state.preferences.executionMinutes.flatMap(LocalTime.init(minutes:)),
                   let due = time.resolve(on: row.day, in: timeZone)?.instant, due > now else { continue }
