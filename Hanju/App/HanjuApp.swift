@@ -3,7 +3,9 @@ import SwiftUI
 @main
 @MainActor
 struct HanjuApp: App {
-    @State private var persistence = PersistenceStore()
+    @UIApplicationDelegateAdaptor(NotificationAppDelegate.self) private var notificationDelegate
+    private var notifications: NotificationCoordinator { notificationDelegate.notifications }
+    private var persistence: PersistenceStore { notificationDelegate.persistence }
 
     var body: some Scene {
         WindowGroup {
@@ -12,6 +14,8 @@ struct HanjuApp: App {
                     AppTabs()
                         .modelContainer(container)
                         .environment(recorder)
+                        .environment(notifications)
+                        .onAppear { notifications.attach(container: container, recorder: recorder) }
                 } else if let message = persistence.failureMessage {
                     ContentUnavailableView {
                         Label("데이터를 열지 못했어요", systemImage: "externaldrive.badge.exclamationmark")

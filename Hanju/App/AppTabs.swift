@@ -6,6 +6,8 @@ struct AppTabs: View {
         case today, week, library, records, settings
     }
 
+    @Environment(NotificationCoordinator.self) private var notifications
+    @State private var recordsRequest: RecordsNotificationRequest?
     @State private var selection: Tab = .today
     @State private var weekDay = LocalDate(.now)
     @State private var weekRequest: WeekRequest?
@@ -36,7 +38,7 @@ struct AppTabs: View {
                 .tag(Tab.library)
 
             NavigationStack {
-                RecordsView(openWeek: { day in
+                RecordsView(notificationRequest: $recordsRequest, openWeek: { day in
                     weekRequest = WeekRequest(kind: .agenda, day: day, caller: .records); selection = .week
                 }, planNextWeek: { day in
                     weekRequest = WeekRequest(kind: .plan, day: day, caller: .records); selection = .week
@@ -45,25 +47,37 @@ struct AppTabs: View {
             .tabItem { Label("기록", systemImage: "text.book.closed") }
             .tag(Tab.records)
 
-            NavigationStack {
-                Form {
-                    Section("데이터 저장") {
-                        Text("계획과 실행 기록은 이 iPhone에 저장돼요.")
-                        Text("앱을 삭제하면 저장된 데이터도 지워져요.")
-                            .foregroundStyle(DesignTokens.textSecondary)
-                    }
-                }
-                .scrollContentBackground(.hidden)
-                .background(DesignTokens.background)
-                .navigationTitle("설정")
-            }
+            NavigationStack { SettingsView() }
             .tabItem { Label("설정", systemImage: "gearshape") }
             .tag(Tab.settings)
         }
         .environment(memos)
+        .safeAreaInset(edge: .top) {
+            if notifications.deferred {
+                Button { notifications.openPending() } label: {
+                    Text("알림 대상 열기").padding(.horizontal, 8)
+                        .frame(maxWidth: .infinity, minHeight: 44).contentShape(Rectangle())
+                }
+                .background(DesignTokens.surface, ignoresSafeAreaEdges: [])
+                .accessibilityIdentifier("notifications.openDeferred")
+            }
+        }
+        .onChange(of: notifications.route?.id, initial: true) {
+            guard let route = notifications.route else { return }
+            if route.ticket.isPlanning {
+                recordsRequest = RecordsNotificationRequest(week: LocalDate(.now).monday)
+                selection = .records
+                notifications.dismissRoute()
+            } else { selection = .today }
+        }
         .onChange(of: selection) { previous, _ in
             if previous == .records { memos.flushAll(in: context) }
         }
-        .onChange(of: scenePhase) { if scenePhase != .active { memos.flushAll(in: context) } }
+        .onChange(of: scenePhase) {
+            if scenePhase != .active { memos.flushAll(in: context) }
+            else { notifications.requestReconcile() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in notifications.requestReconcile() }
+        .onReceive(NotificationCenter.default.publisher(for: .NSSystemTimeZoneDidChange)) { _ in notifications.requestReconcile() }
     }
 }

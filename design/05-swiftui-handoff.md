@@ -24,6 +24,8 @@ Sheet owns draft. Save success → dismiss; failure → preserve input. Block co
 
 App save and OS updates: separate outcomes. App saved + OS failed → pending/retry. Never show failed save as success or erase plan on calendar failure.
 
+Notifications (#11): app-lifetime MainActor coordinator; small UN adapter; pure projection. Keep V4; versioned atomic JSON owns preferences/snooze/generation/receipts; retry derives from durable intent + actual OS state. Throws on load/save; corruption/unknown format never resets existing state or cancels all requests. Successful app commit alone signals reconciliation; prove didSave container/success/failure behavior first, otherwise explicit writer success signal. Serialized dirty-generation drain rechecks after await. Stable request IDs ≠ content generation. Fixed snooze dueAt; conservative ≤64 budget + actual pending; no catch-up. [ADR 0004](../docs/adr/0004-local-notifications-and-reconciliation.md).
+
 RestWeek command: stable confirmed ID set; current-week unfinished only. Pause target running interval + skip set atomically. Failure → original running/state. Preserve completed/intervals. Restore same ID; later additions unaffected. OS cleanup follows app commit.
 
 Late completion: Week past-date/prior-week planned/paused → visible already-done action. Same ID/planned date; keep measured intervals, nil duration only without history.
@@ -45,6 +47,8 @@ Dismiss restores caller tab/date/scroll/focus. Reschedule save success alone ope
 Use semantic Button/Toggle/Picker/DatePicker. Swipe/drag supplementary; primary actions always visible. Label icons. No nested sheets.
 
 Recovery: Today quiet action → Week selection; current-week past planned/paused only; default none. Skip/completed/prior-week excluded. Confirm moves same IDs; cancel unchanged. Empty midweek → remaining-week planner. Completion date editor remains optional; direct completion stays one tap.
+
+Notification route: launch delegate/categories retained before launch returns; primitive Sendable response, finite exactly-once completion. Queue until storage/router ready. Existing presentation owners gate routing; preserve dirty draft/tab/date, defer until explicit open after dismissal. Planning → explicit current-week Records → existing next-week planner. Today temporary original-ID/date target list handles midnight/prior week without expanding normal Today filter; current valid group members choose one. Body tap views only; start uses current-state validation + existing atomic running switch, push after save. No nested sheet/delay routing/badge. Permissions only on explicit enable; planning/execution independent, default execution time nil. Denied/pending/storage error separate; semantic native Form + retry/system settings.
 
 ## 시각·모션·접근성
 

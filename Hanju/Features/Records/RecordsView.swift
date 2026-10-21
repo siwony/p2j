@@ -2,6 +2,8 @@ import SwiftData
 import SwiftUI
 
 struct RecordsView: View {
+    @Environment(NotificationCoordinator.self) private var notifications
+    @Binding var notificationRequest: RecordsNotificationRequest?
     let openWeek: (LocalDate) -> Void
     let planNextWeek: (LocalDate) -> Void
     @Environment(\.modelContext) private var context
@@ -119,8 +121,10 @@ struct RecordsView: View {
         .navigationTitle("기록")
         .toolbar { ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("입력 완료") { memoFocused = false } } }
         .sheet(item: $editing, onDismiss: didDismiss) { CompletionSheet(source: $0) }
-        .onAppear { refreshClock(); load() }
-        .onDisappear { memos.flush(week: week, in: context) }
+        .notificationPresentation(owner: "records", blocked: editing != nil || memoFocused)
+        .onAppear { notifications.setPlanningVisible(true); refreshClock(); load(); consumeNotificationRequest() }
+        .onChange(of: notificationRequest) { consumeNotificationRequest() }
+        .onDisappear { notifications.setPlanningVisible(false); memos.flush(week: week, in: context) }
         .onChange(of: memoFocused) { if !memoFocused { memos.flush(week: week, in: context) } }
         .onChange(of: recorder.revision) { load() }
         .onChange(of: scenePhase) {
@@ -158,6 +162,11 @@ struct RecordsView: View {
         memos.flush(week: week, in: context); memoFocused = false; action()
     }
     private func refreshClock() { today = LocalDate(recorder.now().wall) }
+    private func consumeNotificationRequest() {
+        guard editing == nil, !memoFocused, let request = notificationRequest else { return }
+        memos.flush(week: week, in: context)
+        week = request.week; notificationRequest = nil; load()
+    }
     private func load() {
         do { snapshot = try RecordsStore.fetch(week: week, in: context, at: recorder.now()); error = nil }
         catch { self.error = "기록을 불러오지 못했어요. \(error.localizedDescription)" }

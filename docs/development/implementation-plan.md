@@ -67,6 +67,15 @@
 - 독립 Codex 리뷰 `review_collaboration_rules`: 실제 전체 diff·기획·migration·메모 실패 초안·수행일 집계·탐색 회귀·검증 근거를 읽기 전용으로 검토한다. 최신 head Copilot 실제 완료와 필수 CI 뒤 병합한다.
 - 개발총괄: 공용 API·ADR 0003·문서, 통합 검증·Git/PR/병합·병합 후 Graphify를 감독한다. 이번 단계 완료 후 기획 채팅에 실제 결과와 미검증을 직접 전달한다.
 
+## #11 구현과 담당
+
+- 기획의 [착수 인계](https://github.com/siwony/p2j/issues/11#issuecomment-6303010134) 후 기준 main `4c68330`, `codex/feat/11-local-notifications`에서 진행한다. AC-03/06/11/12/14, R13-03/10과 기존 AC-04 단일 실행을 사용한다. 기능 구현·로컬 증거·최신 head 리뷰/CI·main 병합·병합 후 Graphify 상태는 #11/관련 PR에서 각각 추적한다.
+- 구현 worker `fix_rebase_hook`: 전용 managed worktree의 Notifications/Settings, 앱 수명·탭/Today/Records·기존 presentation owner 연결, 신규 알림 테스트·프로젝트 등록 단독 소유. 모델·migration·기존 테스트·디자인 토큰은 변경하지 않는다. 원본 writer 변경은 didSave 실제 검증 실패 근거를 총괄에 보고한 경우의 성공 신호 대안에 한한다.
+- API 조사 `notification_api_research`: Apple 공식 문서/설치 SDK 읽기 전용. API 타입 검사·macOS 날짜 계산과 실제 iOS/OS 검증을 구분한다.
+- 독립 Codex reviewer `review_collaboration_rules`: 실제 diff·기획·날짜/단일 실행/초안 보호/저장과 OS 실패/중복 응답 검토. 최신 head의 실제 Copilot 결과와 필수 CI 후 병합한다.
+- 개발총괄: [ADR 0004](../adr/0004-local-notifications-and-reconciliation.md)·데이터/화면 계약·통합 검증·Git/PR/병합 감독. 병합 후에만 Graphify 생성·갱신하며 완료 결과와 미검증을 기획 채팅에 한 번 인계한다.
+- #11 전용 새 시뮬레이터를 사용하고 기존 사용자/이전 private 기기 데이터를 보존한다. 순수 계산·파일 디스크·SwiftData 통합·실제 UN pending·응답 UI를 분리 기록한다. 실제 iPhone 잠금/종료 전달·Focus·iOS 17 실행·전체 접근성은 #13, 캘린더는 #12에 남긴다.
+
 ## 기반 단계의 경계
 
 기반 #4는 이름 등록/재조회까지 구현했다. #7은 분류·예상분·기본횟수·선호요일·시작행동·메모 편집, 분류 필터, 보관/복원을 구현했다. 기존 V1 필드를 사용하며 별도 저장 context에서 명령을 확정하고 목록은 값 복사로 다시 읽는다. #8은 계획·회차 snapshot·선택 재계획과 쉬기/복원을 구현했다. #9은 앱 수명 타이머·직접 완료·기록 수정·수행일 정정과 running 계획 변경의 원자 저장을 구현한다. 수행일별 주간 기록·선택적 시간 집계·주간 메모와 계획 참고 연결은 #10에서 구현한다. 알림·캘린더는 #11/#12 후속 단계이며 빈 탭에 성공 상태나 가짜 데이터를 넣지 않는다.

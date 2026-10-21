@@ -165,6 +165,7 @@ struct WeekView: View {
             Button("일시정지하고 시작") { if let pendingStart { resume(pendingStart, replacing: replacing) } }
             Button("취소", role: .cancel) { if let pendingStart { focused = .row(pendingStart.id) } }
         } message: { if let replacing { Text(replacing.occurrence.name) } }
+        .notificationPresentation(owner: "week", blocked: editor != nil || showSkip || confirmSwitch)
         .onAppear { refreshClock(); consumeRequest() }
         .onChange(of: selectedDay) { load() }
         .onChange(of: runningRoute) { if runningRoute == nil { focused = callerFocus } }
