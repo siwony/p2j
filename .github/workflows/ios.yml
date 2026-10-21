@@ -3,39 +3,41 @@ name: iOS
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
   pull-requests: read
 
 concurrency:
-  group: ios-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  group: ios-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || format('run-{0}', github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   test:
-    name: iOS build and tests
+    name: ${{ github.event_name == 'pull_request' && 'iOS build and tests' || 'iOS full regression' }}
     runs-on: macos-15
     timeout-minutes: 55
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.2.app/Contents/Developer
     steps:
-      - name: Detect native changes
-        id: changes
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
-        with:
-          script: |
-            const files = await github.paginate(github.rest.pulls.listFiles, {
-              ...context.repo, pull_number: context.payload.pull_request.number, per_page: 100
-            });
-            const relevant = name => /^(Hanju\/|HanjuTests\/|HanjuUITests\/|Hanju\.xcodeproj\/|\.github\/workflows\/ios\.yml$)/.test(name);
-            core.setOutput('native', files.length >= 3000 || files.some(f => relevant(f.filename) || relevant(f.previous_filename || '')));
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        if: steps.changes.outputs.native == 'true'
         with:
           persist-credentials: false
+          fetch-depth: 0
+      - name: Test selection rules
+        run: node --test .github/scripts/ios-test-plan.test.cjs
+      - name: Record checkout SHA
+        run: echo "CHECKOUT_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+      - name: Select affected tests
+        id: plan
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        with:
+          script: await require('./.github/scripts/ios-test-plan.cjs').run({ context, core });
       - name: Select iPhone 15 Pro simulator
-        if: steps.changes.outputs.native == 'true'
+        if: steps.plan.outputs.native == 'true'
         run: |
           xcodebuild -version
           python3 - <<'PY'
@@ -49,20 +51,31 @@ jobs:
           print(f"iPhone 15 Pro / iOS {runtime['version']}")
           PY
       - name: Build and test
-        if: steps.changes.outputs.native == 'true'
-        run: >-
-          xcodebuild test -project Hanju.xcodeproj -scheme Hanju
-          -destination "platform=iOS Simulator,id=$SIMULATOR_ID"
-          -derivedDataPath DerivedData -resultBundlePath build/TestResults.xcresult
-          CODE_SIGNING_ALLOWED=NO
-      - name: Documentation-only change
-        if: steps.changes.outputs.native != 'true'
-        run: echo 'No native code or iOS workflow changes; native build not needed.'
-      - name: Save test results
-        if: always() && steps.changes.outputs.native == 'true'
+        id: xcode
+        if: steps.plan.outputs.native == 'true'
+        run: node .github/scripts/ios-test-plan.cjs execute build/ios-test-plan.json
+      - name: Verify selected suites actually ran
+        id: suites
+        if: always() && steps.plan.outputs.native == 'true'
+        run: node .github/scripts/ios-test-plan.cjs verify build/ios-test-plan.json
+      - name: Native validation not required
+        if: steps.plan.outputs.native == 'false'
+        run: echo 'Documentation/Graphify/tooling-only changes; native build not needed.'
+      - name: Record native outcomes
+        if: always() && steps.plan.outputs.native == 'true'
+        env:
+          BUILD_OUTCOME: ${{ steps.xcode.outcome }}
+          SUITE_OUTCOME: ${{ steps.suites.outcome }}
+        run: |
+          printf '\nBuild/test outcome: %s\n\nSelected-suite verification: %s\n' "$BUILD_OUTCOME" "$SUITE_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+      - name: Save test results and selection
+        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ios-test-results
-          path: build/TestResults.xcresult
+          path: |
+            build/TestResults.xcresult
+            build/ios-test-plan.json
+            build/executed-tests.json
           if-no-files-found: ignore
           retention-days: 7
