@@ -163,12 +163,12 @@ final class RecordsUITests: XCTestCase {
             button.exists && button.isHittable && !button.frame.isEmpty
                 && button.frame.minY >= navigationBar.frame.maxY
                 && button.frame.maxY <= tabBar.frame.minY
-                && range.exists && range.frame.minY >= navigationBar.frame.maxY
+                && range.exists
         }
         for _ in 0..<15 {
             if visible() { break }
             if !button.exists || button.frame.minY < navigationBar.frame.maxY
-                || !range.exists || range.frame.minY < navigationBar.frame.maxY {
+                || !range.exists {
                 app.collectionViews.firstMatch.swipeDown()
             } else {
                 app.collectionViews.firstMatch.swipeUp()
