@@ -168,14 +168,14 @@ final class NotificationCoordinator {
     func accept(_ response: NotificationEnvelope) {
         if response.action == .snooze { acceptSnooze(response); return }
         guard !responses.contains(response) else { return }
-        if route?.ticket.generation == response.generation { return }
+        if response.action != .open, route?.ticket.generation == response.generation { return }
         guard responses.count < 8 else { message = "열기를 기다리는 알림을 먼저 확인해주세요."; return }
         responses.append(response)
-        if !loaded || !blockers.isEmpty || route != nil { deferred = true }
+        if !loaded || !blockers.isEmpty { deferred = true }
         else { openPending() }
     }
     func openPending() {
-        guard loaded, blockers.isEmpty, route == nil, !responses.isEmpty else { return }
+        guard loaded, blockers.isEmpty, !responses.isEmpty else { return }
         let response = responses.removeFirst()
         deferred = !responses.isEmpty
         do {
