@@ -20,6 +20,8 @@ final class NotificationCoordinator {
     @ObservationIgnored private let startCommand: ((ExecutionSnapshot, ExecutionSnapshot?) throws -> Void)?
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private let timeZone: () -> TimeZone
+    @ObservationIgnored private let captureEventTime: @Sendable () -> NotificationEventTime
+    @ObservationIgnored private let saveInbox = NotificationSaveInbox()
     @ObservationIgnored private var container: ModelContainer?
     @ObservationIgnored private var recorder: ExecutionRecorder?
     @ObservationIgnored private var observer: NSObjectProtocol?
@@ -31,16 +33,32 @@ final class NotificationCoordinator {
 
     init(store: NotificationStateStore = .applicationStore, client: any NotificationClient = SystemNotificationClient(),
          startCommand: ((ExecutionSnapshot, ExecutionSnapshot?) throws -> Void)? = nil,
-         now: @escaping () -> Date = { .now }, timeZone: @escaping () -> TimeZone = { .current }) {
-        self.store = store; self.client = client; self.startCommand = startCommand; self.now = now; self.timeZone = timeZone
+         now: @escaping () -> Date = { .now }, timeZone: @escaping () -> TimeZone = { .current },
+         captureEventTime: @escaping @Sendable () -> NotificationEventTime = {
+             .init(instant: .now, timeZoneID: TimeZone.current.identifier)
+         }) {
+        self.store = store; self.client = client; self.startCommand = startCommand; self.now = now; self.timeZone = timeZone; self.captureEventTime = captureEventTime
     }
     func attach(container: ModelContainer, recorder: ExecutionRecorder) {
         guard self.container == nil else { return }
         self.container = container; self.recorder = recorder
         let identity = ObjectIdentifier(container)
+        let inbox = saveInbox, eventTime = captureEventTime
         observer = NotificationCenter.default.addObserver(forName: ModelContext.didSave, object: nil, queue: nil) { [weak self] note in
-            // Only a primitive identity crosses isolation; the context stays in the posting callback.
+            // Read successful saved models on their posting context; only values cross isolation.
             guard let context = note.object as? ModelContext, ObjectIdentifier(context.container) == identity else { return }
+            let inserted = note.userInfo?[ModelContext.NotificationKey.insertedIdentifiers.rawValue] as? [PersistentIdentifier]
+            let updated = note.userInfo?[ModelContext.NotificationKey.updatedIdentifiers.rawValue] as? [PersistentIdentifier]
+            var valid = inserted != nil && updated != nil
+            var rows: [NotificationCivil] = []
+            for identifier in Set((inserted ?? []) + (updated ?? [])) where identifier.entityName == "PlannedOccurrence" {
+                let registered: PlannedOccurrence? = context.registeredModel(for: identifier)
+                guard let model = registered ?? (context.model(for: identifier) as? PlannedOccurrence),
+                      model.persistentModelID == identifier else { valid = false; continue }
+                rows.append(.init(id: model.id, dayKey: model.plannedDayKey,
+                                  ownMinutes: model.localTimeMinutes, status: model.statusRaw))
+            }
+            inbox.append(.init(time: eventTime(), rows: rows, valid: valid))
             Task { @MainActor [weak self] in self?.requestReconcile() }
         }
         reloadState()
@@ -57,6 +75,7 @@ final class NotificationCoordinator {
     func updatePreferences(_ preferences: NotificationPreferences, requestPermission: Bool = false) async -> Bool {
         guard loaded else { return false }
         do {
+            _ = try prepareCheckpoints(at: now(), in: timeZone())
             var changed = state; changed.preferences = preferences
             try install(changed) // No OS calls if this write fails.
             generation += 1
@@ -88,20 +107,20 @@ final class NotificationCoordinator {
         while true {
             let seen = generation
             do {
+                let instant = now(), zone = timeZone()
+                let currentSources = try prepareCheckpoints(at: instant, in: zone)
                 let system = await client.snapshot()
-                guard seen == generation else { continue }
+                guard seen == generation, saveInbox.isEmpty else { continue }
                 authorization = system.authorization
-                let instant = now()
                 let foreign = system.pending.filter { !$0.id.hasPrefix(NotificationPlan.prefix) }.count
                 var next = state
-                let currentSources = try sources()
-                next.tickets = NotificationPlan.make(sources: currentSources, state: state, now: instant,
-                                                    timeZone: timeZone(), foreignPending: foreign)
+                next.tickets = try NotificationPlan.make(sources: currentSources, state: state, now: instant,
+                                                    timeZone: zone, foreignPending: foreign)
                 try install(next)
-                let today = LocalDate(instant, timeZone: timeZone())
+                let today = LocalDate(instant, timeZone: zone)
                 waitingForTime = state.preferences.executionEnabled && state.preferences.executionMinutes == nil
                     ? currentSources.filter { $0.occurrence.canReplan && $0.occurrence.time == nil && $0.occurrence.day >= today }.count : 0
-                waitingForCapacity = NotificationPlan.waitingCount(sources: currentSources, state: state, now: instant, timeZone: timeZone())
+                waitingForCapacity = try NotificationPlan.waitingCount(sources: currentSources, state: state, now: instant, timeZone: zone)
                 let wanted = state.tickets.filter { !$0.consumed && ($0.isPlanning || $0.dueAt > instant) }
                 let desired = system.allowsScheduling ? Array(wanted.prefix(max(0, NotificationPlan.budget - foreign))) : []
                 let capacityLimited = system.allowsScheduling && desired.count < wanted.count
@@ -117,11 +136,11 @@ final class NotificationCoordinator {
                 if !staleDelivered.isEmpty { client.removeDelivered(staleDelivered) }
                 // A removal call is not a barrier. Count the actually observed occupied slots.
                 let afterRemoval = await client.snapshot()
-                if generation != seen { continue }
+                if generation != seen || !saveInbox.isEmpty { continue }
                 var occupied = Set(afterRemoval.pending.map(\.id))
                 var failed = false
                 for ticket in desired {
-                    guard generation == seen else { break }
+                    guard generation == seen, saveInbox.isEmpty else { break }
                     // A stored DB command can finish before its observer task gets its turn.
                     guard try ticket.isPlanning || validTargets(ticket).count == ticket.targets.count else {
                         generation += 1; break
@@ -130,9 +149,9 @@ final class NotificationCoordinator {
                     guard occupied.contains(ticket.id) || occupied.count < NotificationPlan.budget else { failed = true; continue }
                     do { try await client.add(ticket); occupied.insert(ticket.id) } catch { failed = true }
                 }
-                if generation != seen { continue }
+                if generation != seen || !saveInbox.isEmpty { continue }
                 let observed = await client.snapshot() // Removal is asynchronous; this is observation, not a barrier.
-                if generation != seen { continue }
+                if generation != seen || !saveInbox.isEmpty { continue }
                 let actual = Set(observed.pending.filter { $0.id.hasPrefix(NotificationPlan.prefix) }.map { "\($0.id):\($0.generation?.uuidString ?? "")" })
                 let expected = Set(desired.map { "\($0.id):\($0.generation)" })
                 let deliveredStillStale = observed.delivered.contains { staleDelivered.contains($0.id) }
@@ -140,9 +159,19 @@ final class NotificationCoordinator {
                 needsRetry = capacityLimited || failed || actual != expected || deliveredStillStale
                 if needsRetry { message = "계획은 저장됐지만 일부 알림을 반영하지 못했어요. 다시 시도할 수 있어요." }
                 else { message = nil }
-            } catch { needsRetry = true; message = error.localizedDescription }
-            if generation == seen { break }
+            } catch { needsRetry = true; message = error.localizedDescription; break }
+            if generation == seen && saveInbox.isEmpty { break }
         }
+    }
+    private func prepareCheckpoints(at instant: Date, in zone: TimeZone, candidate: NotificationPersistentState? = nil) throws -> [ExecutionSnapshot] {
+        let prefix = saveInbox.peek()
+        let current = try sources()
+        var next = candidate ?? state
+        next.normalCheckpoints = try NotificationPlan.checkpoints(sources: current, state: next,
+            events: prefix.map { $0.1 }, now: instant, timeZone: zone)
+        try install(next)
+        if let last = prefix.last { saveInbox.acknowledge(through: last.0) }
+        return current
     }
     private func install(_ next: NotificationPersistentState) throws {
         guard next != state else { return }
@@ -205,6 +234,12 @@ final class NotificationCoordinator {
             catch { needsRetry = true; message = NotificationFailure.state.localizedDescription }
             throw error
         }
+        let civil = NotificationCivil(source)
+        if route.ticket.dueAt <= now(), NotificationPlan.matchesCivil(route.ticket, civil) {
+            // A successful start from a retired past route still settles this selected civil plan.
+            saveInbox.append(.init(time: .init(instant: now(), timeZoneID: timeZone().identifier), rows: [], valid: true,
+                                   startedNormal: .init(civil: civil, generation: route.ticket.generation)))
+        }
         do { try markStartReceipt(route.ticket, accepted: true, consumed: true) }
         catch { needsRetry = true; message = NotificationFailure.state.localizedDescription }
         dismissRoute()
@@ -212,9 +247,12 @@ final class NotificationCoordinator {
     }
     private func markStartReceipt(_ ticket: NotificationTicket, accepted: Bool, consumed: Bool) throws {
         // The validated live route can outlive its durably retired generation; old responses cannot reopen it.
-        guard let index = state.tickets.firstIndex(where: { $0.id == ticket.id && $0.generation == ticket.generation }) else { return }
-        var next = state; next.tickets[index].accepted = accepted; next.tickets[index].consumed = consumed
-        try install(next)
+        var next = state
+        if let index = next.tickets.firstIndex(where: { $0.id == ticket.id && $0.generation == ticket.generation }) {
+            next.tickets[index].accepted = accepted; next.tickets[index].consumed = consumed
+        }
+        if consumed { _ = try prepareCheckpoints(at: now(), in: timeZone(), candidate: next) }
+        else { try install(next) }
     }
     func setPlanningVisible(_ visible: Bool) { planningVisible = visible }
     func setVisibleTargets(owner: String, ids: Set<UUID>) { visibleTargets[owner] = ids }
@@ -254,4 +292,22 @@ final class NotificationCoordinator {
         message = "30분 뒤에 다시 알려드릴게요. 원래 계획 날짜는 그대로예요."
         requestReconcile()
     }
+}
+
+/// Posting callbacks enqueue values only; failed JSON writes leave the prefix available for retry.
+private final class NotificationSaveInbox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var pending: [(Int, NotificationSaveEvent)] = []
+    private var sequence = 0
+    func append(_ event: NotificationSaveEvent) {
+        lock.lock(); defer { lock.unlock() }
+        sequence += 1; pending.append((sequence, event))
+    }
+    func peek() -> [(Int, NotificationSaveEvent)] {
+        lock.lock(); defer { lock.unlock() }; return pending
+    }
+    func acknowledge(through sequence: Int) {
+        lock.lock(); defer { lock.unlock() }; pending.removeAll { $0.0 <= sequence }
+    }
+    var isEmpty: Bool { lock.lock(); defer { lock.unlock() }; return pending.isEmpty }
 }

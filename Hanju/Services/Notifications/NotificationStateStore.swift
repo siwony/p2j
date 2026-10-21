@@ -15,17 +15,22 @@ struct NotificationStateStore {
             return NotificationPersistentState()
         }
         let state = try JSONDecoder().decode(NotificationPersistentState.self, from: data)
+        try validate(state)
+        return state
+    }
+    private func validate(_ state: NotificationPersistentState) throws {
         guard state.formatVersion == 1, state.preferences.isValid, state.tickets.count <= 256,
+              Set(state.normalCheckpoints.map { $0.civil.id }).count == state.normalCheckpoints.count,
+              state.normalCheckpoints.allSatisfy({ $0.civil.isValid && ($0.resolvedDue == nil || $0.resolvedDue!.timeIntervalSince1970.isFinite) }),
               Set(state.tickets.map(\.id)).count == state.tickets.count,
               state.tickets.allSatisfy({ ticket in
                   ticket.id.hasPrefix(NotificationPlan.prefix) && ticket.dueAt.timeIntervalSince1970.isFinite &&
                   Set(ticket.targets.map(\.id)).count == ticket.targets.count &&
                   ticket.targets.allSatisfy { LocalDate(key: $0.dayKey) != nil && $0.updatedAt.timeIntervalSince1970.isFinite && $0.revision >= 0 }
               }) else { throw NotificationFailure.state }
-        return state
     }
     func save(_ state: NotificationPersistentState) throws {
-        guard state.preferences.isValid, state.tickets.count <= 256 else { throw NotificationFailure.state }
+        try validate(state)
         let data = try JSONEncoder().encode(state)
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         try write(data, url)
