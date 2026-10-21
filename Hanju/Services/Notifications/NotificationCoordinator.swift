@@ -190,28 +190,29 @@ final class NotificationCoordinator {
     func targets(for route: NotificationRoute) throws -> [ExecutionSnapshot] { try validTargets(route.ticket) }
     /// The original notification versions stay fixed through group choice / running confirmation.
     func start(_ id: UUID, from route: NotificationRoute, replacing: ExecutionSnapshot? = nil) throws {
-        guard self.route?.id == route.id, state.preferences.executionEnabled, let recorder,
+        guard self.route == route, state.preferences.executionEnabled, let recorder,
               let expected = route.ticket.targets.first(where: { $0.id == id }) else { throw NotificationFailure.changed }
         let source = try recorder.read(id)
         guard expected.matches(source) else { throw NotificationFailure.changed }
-        try mark(route.ticket, accepted: true, consumed: false)
+        try markStartReceipt(route.ticket, accepted: true, consumed: false)
         do {
             if let startCommand { try startCommand(source, replacing) }
             else { try recorder.start(source, replacing: replacing) }
         }
         catch {
             // Receipt acceptance never means app-save success. Existing OS intent stays intact.
-            do { try mark(route.ticket, accepted: false, consumed: false) }
+            do { try markStartReceipt(route.ticket, accepted: false, consumed: false) }
             catch { needsRetry = true; message = NotificationFailure.state.localizedDescription }
             throw error
         }
-        do { try mark(route.ticket, accepted: true, consumed: true) }
+        do { try markStartReceipt(route.ticket, accepted: true, consumed: true) }
         catch { needsRetry = true; message = NotificationFailure.state.localizedDescription }
         dismissRoute()
         requestReconcile()
     }
-    private func mark(_ ticket: NotificationTicket, accepted: Bool, consumed: Bool) throws {
-        guard let index = state.tickets.firstIndex(where: { $0.id == ticket.id && $0.generation == ticket.generation }) else { throw NotificationFailure.changed }
+    private func markStartReceipt(_ ticket: NotificationTicket, accepted: Bool, consumed: Bool) throws {
+        // The validated live route can outlive its durably retired generation; old responses cannot reopen it.
+        guard let index = state.tickets.firstIndex(where: { $0.id == ticket.id && $0.generation == ticket.generation }) else { return }
         var next = state; next.tickets[index].accepted = accepted; next.tickets[index].consumed = consumed
         try install(next)
     }
