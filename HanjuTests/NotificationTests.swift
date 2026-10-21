@@ -189,6 +189,174 @@ final class NotificationTests: XCTestCase {
         XCTAssertNil(coordinator.route)
         XCTAssertEqual(try recorder.read(sources[1].id).occurrence.status, .planned)
     }
+    func testOpenedGroupStartsUnchangedOriginalTargetAfterReconciliation() async throws {
+        let (container, sources) = try fixture(count: 2, timed: false)
+        let recorder = ExecutionRecorder(container: container), client = Client()
+        let coordinator = NotificationCoordinator(store: store(), client: client, now: { self.instant }, timeZone: { .gmt })
+        coordinator.attach(container: container, recorder: recorder); await idle(coordinator)
+        await coordinator.updatePreferences(preferences()); await idle(coordinator)
+        let original = try XCTUnwrap(coordinator.state.tickets.first { $0.kind == .group })
+        coordinator.accept(.init(requestID: original.id, generation: original.generation, action: .open))
+        let route = try XCTUnwrap(coordinator.route)
+        try recorder.complete(sources[0])
+        coordinator.requestReconcile(); await idle(coordinator)
+        let replacement = try XCTUnwrap(coordinator.state.tickets.first { $0.id == original.id })
+        XCTAssertNotEqual(replacement.generation, original.generation)
+        XCTAssertEqual(try coordinator.targets(for: route).map(\.id), [sources[1].id])
+        XCTAssertEqual(try recorder.read(sources[1].id), sources[1])
+        try coordinator.start(sources[1].id, from: route)
+        XCTAssertEqual(recorder.active?.id, sources[1].id)
+        XCTAssertNil(coordinator.route)
+    }
+    func testRetiredGroupKeepsOriginalTargetsAcrossCompletionMoveSkipAndSnoozeMonday() async throws {
+        for snoozed in [false, true] {
+            for change in ["complete", "move", "skip"] {
+                let (container, sources) = try fixture(count: 2, timed: false)
+                let disk = store(), client = Client(), recorder = ExecutionRecorder(container: container)
+                var now = instant
+                let coordinator = NotificationCoordinator(store: disk, client: client, now: { now }, timeZone: { .gmt })
+                coordinator.attach(container: container, recorder: recorder); await idle(coordinator)
+                await coordinator.updatePreferences(preferences()); await idle(coordinator)
+                var original = try XCTUnwrap(coordinator.state.tickets.first { $0.kind == .group })
+                if snoozed {
+                    now = original.dueAt
+                    coordinator.acceptSnooze(.init(requestID: original.id, generation: original.generation, action: .snooze))
+                    await idle(coordinator)
+                    original = try XCTUnwrap(coordinator.state.tickets.first { $0.kind == .snooze })
+                    now = original.dueAt // Sunday's group is opened on Monday, still with Sunday's IDs/day.
+                    XCTAssertEqual(LocalDate(now, timeZone: .gmt), day.adding(days: 1))
+                }
+                let envelope = NotificationEnvelope(requestID: original.id, generation: original.generation, action: .open)
+                coordinator.accept(envelope)
+                let route = try XCTUnwrap(coordinator.route)
+                switch change {
+                case "complete": try recorder.complete(sources[0])
+                case "move": try PlanWriter.move(sources[0].occurrence, to: day.adding(days: 1), time: nil, in: container.mainContext)
+                default: try PlanWriter.skip(sources[0].occurrence, in: container.mainContext)
+                }
+                let newEntry = PlanDraft.Entry(routineID: sources[0].occurrence.routineID, name: "새 C", expectedMinutes: nil,
+                                               firstAction: nil, day: day)
+                try PlanWriter.confirm(PlanDraft(week: day.monday, entries: [newEntry]), in: container.mainContext)
+                coordinator.requestReconcile(); await idle(coordinator)
+                let replacement = try XCTUnwrap(coordinator.state.tickets.first { $0.id == original.id })
+                XCTAssertNotEqual(replacement.generation, original.generation)
+                XCTAssertEqual(try coordinator.targets(for: route).map(\.id), [sources[1].id])
+                XCTAssertEqual(route.ticket, original)
+                XCTAssertTrue(route.ticket.targets.allSatisfy { $0.dayKey == day.key })
+                XCTAssertThrowsError(try coordinator.start(sources[0].id, from: route))
+                XCTAssertThrowsError(try coordinator.start(newEntry.id, from: route))
+                let forged = NotificationRoute(id: route.id, ticket: replacement, action: route.action)
+                XCTAssertThrowsError(try coordinator.start(sources[1].id, from: forged), "A route UUID cannot authorize a replacement ticket")
+                let persisted = try disk.load()
+                XCTAssertFalse(persisted.tickets.contains { $0.generation == original.generation })
+                let reopened = NotificationCoordinator(store: disk, client: Client(), now: { now }, timeZone: { .gmt })
+                reopened.attach(container: container, recorder: recorder); await idle(reopened)
+                reopened.accept(envelope)
+                XCTAssertNil(reopened.route); XCTAssertNil(recorder.active)
+                try coordinator.start(sources[1].id, from: route)
+                // No suspension yet: starting from the old route must not mark the replacement B+C receipt.
+                XCTAssertEqual(coordinator.state.tickets.first { $0.id == replacement.id }, replacement)
+                XCTAssertEqual(try disk.load().tickets.first { $0.id == replacement.id }, replacement)
+                XCTAssertEqual(recorder.active?.id, sources[1].id)
+                XCTAssertEqual(recorder.active?.occurrence.day, day)
+                let started = try recorder.read(sources[1].id)
+                XCTAssertEqual(started.intervals.count, 1)
+                XCTAssertThrowsError(try coordinator.start(sources[1].id, from: route))
+                XCTAssertEqual(try recorder.read(sources[1].id), started)
+                await idle(coordinator)
+                XCTAssertEqual(try recorder.read(newEntry.id).occurrence.status, .planned)
+                if !snoozed {
+                    let remaining = try XCTUnwrap(coordinator.state.tickets.first { $0.id == original.id })
+                    XCTAssertEqual(remaining.targets.map(\.id), [newEntry.id])
+                    XCTAssertFalse(remaining.accepted); XCTAssertFalse(remaining.consumed)
+                    XCTAssertTrue(client.pending.contains { $0.id == remaining.id && $0.generation == remaining.generation })
+                }
+            }
+        }
+    }
+    func testRetiredRouteRejectsChangedTargetAndKeepsRunningOnUnconfirmedSwitch() async throws {
+        let (container, sources) = try fixture(count: 3, timed: false)
+        let recorder = ExecutionRecorder(container: container), client = Client()
+        let coordinator = NotificationCoordinator(store: store(), client: client, now: { self.instant }, timeZone: { .gmt })
+        coordinator.attach(container: container, recorder: recorder); await idle(coordinator)
+        await coordinator.updatePreferences(preferences()); await idle(coordinator)
+        let original = try XCTUnwrap(coordinator.state.tickets.first)
+        coordinator.accept(.init(requestID: original.id, generation: original.generation, action: .open))
+        let route = try XCTUnwrap(coordinator.route)
+        try recorder.complete(sources[0]); try recorder.start(sources[2])
+        coordinator.requestReconcile(); await idle(coordinator)
+        let running = try XCTUnwrap(recorder.active), pending = client.pending
+        XCTAssertThrowsError(try coordinator.start(sources[1].id, from: route)) { error in
+            guard case ExecutionError.anotherRunning = error else { return XCTFail("Wrong error: \(error)") }
+        }
+        XCTAssertEqual(recorder.active, running); XCTAssertEqual(client.pending, pending)
+        XCTAssertEqual(try recorder.read(sources[1].id), sources[1])
+        // A cancelled confirmation makes no command; keep this original route for a later explicit choice.
+        XCTAssertEqual(coordinator.route, route)
+        try PlanWriter.move(sources[1].occurrence, to: day, time: LocalTime(hour: 23, minute: 59), in: container.mainContext)
+        coordinator.requestReconcile(); await idle(coordinator)
+        XCTAssertTrue(try coordinator.targets(for: route).isEmpty)
+        XCTAssertThrowsError(try coordinator.start(sources[1].id, from: route, replacing: running)) { error in
+            guard case NotificationFailure.changed = error else { return XCTFail("Wrong error: \(error)") }
+        }
+        XCTAssertEqual(recorder.active, running)
+    }
+    func testRetiredRouteSaveFailurePreservesNewScheduleAndExplicitRetry() async throws {
+        let (container, sources) = try fixture(count: 2, timed: false)
+        let recorder = ExecutionRecorder(container: container), client = Client(), disk = store()
+        var fail = true, saveCalls = 0
+        let coordinator = NotificationCoordinator(store: disk, client: client, startCommand: { source, replacing in
+            try ExecutionWriter.start(source, replacing: replacing, at: ExecutionClock.now(), in: container.mainContext,
+                save: { context in saveCalls += 1; if fail { throw Failure.disk }; try context.save() })
+            recorder.refresh()
+        }, now: { self.instant }, timeZone: { .gmt })
+        coordinator.attach(container: container, recorder: recorder); await idle(coordinator)
+        await coordinator.updatePreferences(preferences()); await idle(coordinator)
+        let original = try XCTUnwrap(coordinator.state.tickets.first)
+        coordinator.accept(.init(requestID: original.id, generation: original.generation, action: .open))
+        let route = try XCTUnwrap(coordinator.route)
+        try recorder.complete(sources[0]); coordinator.requestReconcile(); await idle(coordinator)
+        let bytes = try Data(contentsOf: disk.url), pending = client.pending
+        let adds = client.adds, removes = client.removes
+        XCTAssertThrowsError(try coordinator.start(sources[1].id, from: route)) { error in
+            guard case Failure.disk = error else { return XCTFail("Wrong error: \(error)") }
+        }
+        XCTAssertEqual(saveCalls, 1); XCTAssertEqual(coordinator.route, route)
+        XCTAssertEqual(try recorder.read(sources[1].id), sources[1]); XCTAssertNil(recorder.active)
+        XCTAssertEqual(try Data(contentsOf: disk.url), bytes)
+        coordinator.requestReconcile(); await idle(coordinator)
+        XCTAssertEqual(client.pending, pending); XCTAssertEqual(client.adds, adds); XCTAssertEqual(client.removes, removes)
+        fail = false
+        try coordinator.start(sources[1].id, from: route)
+        XCTAssertEqual(saveCalls, 2); XCTAssertEqual(recorder.active?.id, sources[1].id)
+        XCTAssertEqual(try recorder.read(sources[1].id).intervals.count, 1)
+        await idle(coordinator)
+    }
+    func testLiveGenerationReceiptWriteFailurePreventsExecution() async throws {
+        let (container, sources) = try fixture(count: 2, timed: false)
+        var disk = store(), failWrite = false, writes = 0, starts = 0
+        disk.write = { data, url in
+            writes += 1
+            if failWrite { throw Failure.disk }
+            try data.write(to: url, options: .atomic)
+        }
+        let client = Client(), recorder = ExecutionRecorder(container: container)
+        let coordinator = NotificationCoordinator(store: disk, client: client, startCommand: { _, _ in starts += 1 },
+                                                   now: { self.instant }, timeZone: { .gmt })
+        coordinator.attach(container: container, recorder: recorder); await idle(coordinator)
+        await coordinator.updatePreferences(preferences()); await idle(coordinator)
+        let original = try XCTUnwrap(coordinator.state.tickets.first)
+        coordinator.accept(.init(requestID: original.id, generation: original.generation, action: .open))
+        let route = try XCTUnwrap(coordinator.route)
+        let bytes = try Data(contentsOf: disk.url), state = coordinator.state, pending = client.pending, beforeWrites = writes
+        failWrite = true
+        XCTAssertThrowsError(try coordinator.start(sources[1].id, from: route)) { error in
+            guard case Failure.disk = error else { return XCTFail("Wrong error: \(error)") }
+        }
+        XCTAssertEqual(writes, beforeWrites + 1); XCTAssertEqual(starts, 0)
+        XCTAssertEqual(coordinator.state, state); XCTAssertEqual(try Data(contentsOf: disk.url), bytes)
+        XCTAssertEqual(client.pending, pending); XCTAssertEqual(try recorder.read(sources[1].id), sources[1])
+    }
     func testChangeDuringOSAddDrainsAndRemovesObsoleteRequest() async throws {
         let (container, sources) = try fixture(); let client = Client()
         let coordinator = NotificationCoordinator(store: store(), client: client, now: { self.instant }, timeZone: { .gmt })
