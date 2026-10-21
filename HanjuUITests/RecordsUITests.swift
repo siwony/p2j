@@ -151,7 +151,16 @@ final class RecordsUITests: XCTestCase {
     @MainActor private func reveal(_ element: XCUIElement, in app: XCUIApplication, upward: Bool = true) {
         for _ in 0..<15 {
             if element.exists && element.isHittable { return }
-            if upward { app.collectionViews.firstMatch.swipeUp() } else { app.collectionViews.firstMatch.swipeDown() }
+            var scrollUp = upward
+            if element.exists, !element.frame.isEmpty {
+                let frame = element.frame
+                let navigationBar = app.navigationBars.firstMatch, tabBar = app.tabBars.firstMatch
+                let top = navigationBar.exists ? navigationBar.frame.maxY : app.frame.minY
+                let bottom = tabBar.exists && tabBar.isHittable ? tabBar.frame.minY : app.frame.maxY
+                if frame.minY < top { scrollUp = false }
+                else if frame.maxY > bottom { scrollUp = true }
+            }
+            if scrollUp { app.collectionViews.firstMatch.swipeUp() } else { app.collectionViews.firstMatch.swipeDown() }
         }
     }
     @MainActor @discardableResult
